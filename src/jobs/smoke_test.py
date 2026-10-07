@@ -93,7 +93,10 @@ def main():
     )
     results["mlflow_trace_id"] = mlflow.get_last_active_trace_id()
 
-    print("SMOKE TEST RESULTS")
+    spark.sql(f"DROP FUNCTION IF EXISTS {fq}.smoke_kpis")
+    spark.sql(f"DROP FUNCTION IF EXISTS {fq}.smoke_py")
+
+    print("PLATFORM CHECK RESULTS")
     print(json.dumps(results, indent=2, default=str))
 
 

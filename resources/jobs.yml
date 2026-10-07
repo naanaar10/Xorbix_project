@@ -1,27 +1,5 @@
 resources:
   jobs:
-    smoke_test:
-      name: chiro-growth-smoke-test
-      tasks:
-        - task_key: smoke
-          spark_python_task:
-            python_file: ../src/jobs/smoke_test.py
-            parameters:
-              - --catalog=${var.catalog}
-              - --schema=${resources.schemas.chiro_growth.name}
-              - --warehouse-id=${var.warehouse_id}
-              - --llm-endpoint=${var.llm_endpoint}
-              - --experiment-id=${resources.experiments.agent_traces.id}
-          environment_key: default
-      environments:
-        - environment_key: default
-          spec:
-            environment_version: "4"
-            dependencies:
-              - databricks-sdk>=0.60
-              - openai>=1.40
-              - mlflow>=3.1
-
     generate_data:
       name: chiro-growth-generate-data
       description: Simulates the 50-clinic network (~$100M revenue) with planted problems and verifies them.
@@ -38,3 +16,80 @@ resources:
         - environment_key: default
           spec:
             environment_version: "4"
+
+    growth_director:
+      name: chiro-growth-director
+      description: Nightly agent loop - observe the network, diagnose and act through specialist agents, measure outcomes.
+      schedule:
+        quartz_cron_expression: "0 0 6 * * ?"
+        timezone_id: America/Chicago
+        pause_status: PAUSED
+      tasks:
+        - task_key: observe
+          spark_python_task:
+            python_file: ../src/jobs/setup_and_observe.py
+            parameters:
+              - --catalog=${var.catalog}
+              - --schema=${resources.schemas.chiro_growth.name}
+              - --src-dir=${workspace.file_path}/src
+              - --app-name=${resources.apps.chiro_growth_app.name}
+          environment_key: default
+        - task_key: reason_decide_act
+          depends_on:
+            - task_key: observe
+          spark_python_task:
+            python_file: ../src/jobs/run_agents.py
+            parameters:
+              - --catalog=${var.catalog}
+              - --schema=${resources.schemas.chiro_growth.name}
+              - --warehouse-id=${var.warehouse_id}
+              - --llm-endpoint=${var.llm_endpoint}
+              - --experiment-id=${resources.experiments.agent_traces.id}
+              - --src-dir=${workspace.file_path}/src
+              - --clinics-per-run=${var.clinics_per_run}
+              - --max-agent-patients=${var.max_agent_patients}
+          environment_key: default
+        - task_key: measure
+          depends_on:
+            - task_key: reason_decide_act
+          spark_python_task:
+            python_file: ../src/jobs/measure_outcomes.py
+            parameters:
+              - --catalog=${var.catalog}
+              - --schema=${resources.schemas.chiro_growth.name}
+              - --warehouse-id=${var.warehouse_id}
+              - --src-dir=${workspace.file_path}/src
+          environment_key: default
+      environments:
+        - environment_key: default
+          spec:
+            environment_version: "4"
+            dependencies:
+              - databricks-sdk>=0.60
+              - openai>=1.40
+              - httpx>=0.27
+              - mlflow-skinny>=3.1
+
+    platform_check:
+      name: chiro-growth-platform-check
+      description: Verifies a workspace supports everything the bundle needs (UC functions, warehouse, LLM tool calls, MLflow tracing).
+      tasks:
+        - task_key: check
+          spark_python_task:
+            python_file: ../src/jobs/smoke_test.py
+            parameters:
+              - --catalog=${var.catalog}
+              - --schema=${resources.schemas.chiro_growth.name}
+              - --warehouse-id=${var.warehouse_id}
+              - --llm-endpoint=${var.llm_endpoint}
+              - --experiment-id=${resources.experiments.agent_traces.id}
+          environment_key: default
+      environments:
+        - environment_key: default
+          spec:
+            environment_version: "4"
+            dependencies:
+              - databricks-sdk>=0.60
+              - openai>=1.40
+              - httpx>=0.27
+              - mlflow-skinny>=3.1

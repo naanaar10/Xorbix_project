@@ -15,6 +15,8 @@ resources:
             value_from: sql-warehouse
           - name: LLM_ENDPOINT
             value_from: llm-endpoint
+          - name: MLFLOW_EXPERIMENT_ID
+            value_from: agent-traces
       resources:
         - name: sql-warehouse
           sql_warehouse:
@@ -24,3 +26,7 @@ resources:
           serving_endpoint:
             name: ${var.llm_endpoint}
             permission: CAN_QUERY
+        - name: agent-traces
+          experiment:
+            experiment_id: ${resources.experiments.agent_traces.id}
+            permission: CAN_EDIT

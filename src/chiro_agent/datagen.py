@@ -152,7 +152,7 @@ def clinic_profiles(cfg: SimConfig) -> list[ClinicProfile]:
         if p.location_id == BEST_CLINIC:
             p.dropout_mult, p.wellness_uptake = 0.6, 0.6
         elif p.location_id == RETENTION_CLINIC:
-            p.problem_provider_share = 0.45
+            p.problem_provider_share = 0.55
         elif p.location_id == LEADS_CLINIC:
             p.response_median_hours = 36.0
         elif p.location_id == CAPACITY_CLINIC:

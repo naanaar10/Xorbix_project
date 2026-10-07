@@ -86,6 +86,10 @@ def main():
     data = simulate_network(cfg, on_chunk=write)
     for table, rows in data.items():
         write(table, rows)
+    spark.sql(f"""CREATE OR REPLACE TABLE {fq}.network_metadata
+                  COMMENT 'Reference date the data was simulated as of; tools measure recency from it.'
+                  AS SELECT DATE'{as_of}' AS as_of, {args.seed} AS seed, {args.num_clinics} AS num_clinics,
+                            current_timestamp() AS generated_at""")
     for table, comment in TABLE_COMMENTS.items():
         spark.sql(f"COMMENT ON TABLE {fq}.{table} IS '{comment}'")
 
