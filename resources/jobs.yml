@@ -1,0 +1,23 @@
+resources:
+  jobs:
+    smoke_test:
+      name: chiro-growth-smoke-test
+      tasks:
+        - task_key: smoke
+          spark_python_task:
+            python_file: ../src/jobs/smoke_test.py
+            parameters:
+              - --catalog=${var.catalog}
+              - --schema=${resources.schemas.chiro_growth.name}
+              - --warehouse-id=${var.warehouse_id}
+              - --llm-endpoint=${var.llm_endpoint}
+              - --experiment-id=${resources.experiments.agent_traces.id}
+          environment_key: default
+      environments:
+        - environment_key: default
+          spec:
+            environment_version: "4"
+            dependencies:
+              - databricks-sdk>=0.60
+              - openai>=1.40
+              - mlflow>=3.1

@@ -1,0 +1,27 @@
+# Chiro Growth Director: Databricks Asset Bundle.
+# Workspace-specific values live in variables or in your CLI profile, never in code.
+bundle:
+  name: chiro-growth-agent
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: Unity Catalog catalog that holds the bundle's schema.
+    default: workspace
+  schema:
+    description: Schema for generated data, agent tools and agent outputs.
+    default: chiro_growth
+  warehouse_id:
+    description: SQL warehouse used by the agent tools and the app.
+    lookup:
+      warehouse: Serverless Starter Warehouse
+  llm_endpoint:
+    description: Foundation Model serving endpoint the agents call.
+    default: databricks-gpt-oss-120b
+
+targets:
+  dev:
+    mode: development
+    default: true

@@ -1,0 +1,26 @@
+resources:
+  apps:
+    chiro_growth_app:
+      name: chiro-growth
+      description: Growth Director - clinic diagnoses, action queue and measured impact.
+      source_code_path: ../src
+      config:
+        command: ["streamlit", "run", "app/app.py"]
+        env:
+          - name: CHIRO_CATALOG
+            value: ${var.catalog}
+          - name: CHIRO_SCHEMA
+            value: ${resources.schemas.chiro_growth.name}
+          - name: DATABRICKS_WAREHOUSE_ID
+            value_from: sql-warehouse
+          - name: LLM_ENDPOINT
+            value_from: llm-endpoint
+      resources:
+        - name: sql-warehouse
+          sql_warehouse:
+            id: ${var.warehouse_id}
+            permission: CAN_USE
+        - name: llm-endpoint
+          serving_endpoint:
+            name: ${var.llm_endpoint}
+            permission: CAN_QUERY

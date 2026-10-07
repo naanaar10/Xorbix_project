@@ -1,0 +1,6 @@
+resources:
+  schemas:
+    chiro_growth:
+      catalog_name: ${var.catalog}
+      name: ${var.schema}
+      comment: Synthetic chiropractic network data, agent tools and agent outputs.
