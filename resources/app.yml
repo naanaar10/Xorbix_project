@@ -2,10 +2,10 @@ resources:
   apps:
     chiro_growth_app:
       name: chiro-growth-${bundle.target}
-      description: Growth Director - clinic diagnoses, action queue and measured impact.
+      description: Growth Director - the clinic spine, each clinic's diagnosis, outreach to approve and measured impact.
       source_code_path: ../src
       config:
-        command: ["streamlit", "run", "app/app.py"]
+        command: ["python", "-m", "app.server"]
         env:
           - name: CHIRO_CATALOG
             value: ${var.catalog}

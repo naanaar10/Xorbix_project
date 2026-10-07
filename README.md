@@ -16,7 +16,7 @@ All data is synthetic.
 | **Observe** | Rebuild a per-clinic KPI snapshot and price each gap in dollars a year (retention, leads, capacity). | `observe` task, `clinic_kpis` table |
 | **Reason** | The Director reads the snapshot, picks the clinics with the most revenue at stake, and drills into each with tools until it can name the root cause (a step, a provider, a time of day). | `reason_decide_act` task |
 | **Decide** | It records the diagnosis and assigns a specialist: Retention, Leads or Capacity. | `clinic_diagnoses` table |
-| **Act** | The specialist reviews patients or leads one by one and queues outreach (a specific open slot, a membership offer, a speed-to-lead call...). Staff approve, edit or reject in the app. | `action_queue` table, app |
+| **Act** | The specialist reviews patients or leads one by one and queues outreach (a specific open slot, a membership offer, a speed-to-lead call...). Staff approve, edit or skip each one in the app. | `action_queue` table, app |
 | **Measure** | At-risk patients are randomized before any agent sees them: 20% get nothing (holdout), 20% a generic reminder, 60% agent-chosen outreach. Outcomes are simulated and compared. | `measure` task, `impact_summary` table |
 
 What makes it agentic rather than a dashboard:
@@ -51,7 +51,10 @@ Databricks App ◄─────────┘  (also runs the Director live o
 - **Model**: a Databricks Foundation Model endpoint through its OpenAI-compatible API
   (default `databricks-gpt-oss-120b`, set by the `llm_endpoint` variable).
 - **Agent loop**: a plain tool-calling loop (`src/chiro_agent/loop.py`), traced with MLflow.
-- **App**: Streamlit on Databricks Apps (`src/app/`), reading and writing through the SQL warehouse.
+- **App**: a small FastAPI server and one hand-written page (no build step) on Databricks Apps
+  (`src/app/`). The 50 clinics are drawn as a spine; pick one to read its diagnosis, approve its
+  outreach and see whether it worked. "Run the Director" runs the agent live on that clinic and
+  shows each step as it happens.
 
 ## The data
 
@@ -77,7 +80,7 @@ No names, contact details, birthdates or clinical fields exist anywhere: people 
 Outreach isn't really sent, so outcomes are simulated. Each patient who went quiet has a hidden
 true reason for stopping (`sim_ground_truth`, which no agent tool reads). The chance they come
 back depends on whether the outreach fits that reason; the table is in
-`src/chiro_agent/measure.py` and is shown in the app. Generic reminders and no outreach get the
+`src/chiro_agent/measure.py`. Generic reminders and no outreach get the
 same treatment, so the comparison between arms is fair.
 
 ## Setup
@@ -135,6 +138,18 @@ databricks bundle deploy -t prod -p other --var="catalog=main" --var="llm_endpoi
 | `clinics_per_run` | `3` | Clinics the Director investigates per run |
 | `max_agent_patients` | `30` | Patients per clinic that get an individual agent review |
 
+
+## Run the app on your machine
+
+With the bundle deployed and the jobs run once:
+
+```bash
+scripts/run_app_locally.sh          # or: scripts/run_app_locally.sh prod
+```
+
+It reads the schema, warehouse, model and experiment from `databricks bundle summary` and uses
+your CLI login. Open http://localhost:8000.
+
 ## Repository layout
 
 ```
@@ -143,8 +158,9 @@ resources/                schema, jobs, app and MLflow experiment definitions
 src/chiro_agent/          agent package: data generator, tools, loop, Director, specialists, measure
 src/sql/                  observe step, agent tools (UC functions), output tables
 src/jobs/                 job entry points
-src/app/                  Databricks App (Streamlit)
-tests/                    unit tests (generator invariants, outcome model)
+src/app/                  Databricks App: server.py (API), static/ (the page), live.py (live runs)
+scripts/                  run_app_locally.sh
+tests/                    unit tests (generator, outcome model, app API); tests/js for the page
 docs/design.md            design notes
 ```
 
@@ -152,11 +168,13 @@ docs/design.md            design notes
 
 ```bash
 uv run --group dev pytest
+node --test tests/js/*.test.mjs
 ```
 
 The generator tests check that IDs link up, columns are consistent and every planted problem
 stays findable. The measurement tests check that the outcome model rewards matching outreach to
-the real reason.
+the real reason. The app tests cover the queries, live-run events and API errors against a fake
+warehouse.
 
 ## Credits
 
