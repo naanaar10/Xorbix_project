@@ -2,12 +2,15 @@
 // time. The URL hash holds the selected clinic (#LOC007), so reloads and the back button work.
 import { get } from "./api.js";
 import { renderEmpty } from "./empty.js";
+import { follow, startRun } from "./live.js";
+import { reducedMotion } from "./motion.js";
 import { esc, money } from "./format.js";
 import { renderSpine } from "./spine.js";
 import { renderStory } from "./story.js";
 
 const view = document.getElementById("view");
 const panel = document.getElementById("panel");
+const live = document.getElementById("live");
 const SLOW_MS = 4000;
 const WAKING = "Waking up the SQL warehouse. The first load can take up to a minute.";
 
@@ -17,6 +20,8 @@ const state = {
   clinic: null,       // selected clinic id, or null for the overview
   runId: "",          // run picked in How it works; "" means the latest run for each clinic
   stories: new Map(), // "LOC007|runId" -> promise of GET /api/clinics/LOC007
+  meta: null,         // GET /api/meta
+  liveRunId: null,    // the live run being followed, if any
 };
 
 const cityOf = (id) => state.network?.clinics.find((c) => c.id === id)?.city ?? id;
@@ -44,6 +49,8 @@ function loadStory(id) {
 function handlers() {
   return {
     pinnedRun: state.runId,
+    running: Boolean(state.liveRunId),
+    onRun: run,
     onDecided(actionId, status, message) {
       // Keep cached stories in step with what staff decided, so going back shows the same state.
       for (const story of state.stories.values()) {
@@ -94,6 +101,56 @@ async function prefetch() {
   for (const c of flagged) await loadStory(c.id).catch(() => {});
 }
 
+// ---- live runs
+
+function setRunButtons() {
+  const button = view.querySelector("#run");
+  if (!button) return;
+  button.disabled = Boolean(state.liveRunId);
+  button.textContent = state.liveRunId ? "Running…" : button.dataset.label;
+}
+
+function liveOptions(clinic, patients) {
+  return {
+    cityOf,
+    onStart(runId) {
+      state.liveRunId = runId;
+    },
+    onDone(event) {
+      state.liveRunId = null;
+      state.stories.clear(); // every story may have changed
+      state.runId = "";      // show the new run
+      refreshMeta().catch(() => {});
+      if (state.clinic === event.clinic) show(event.clinic);
+      else setRunButtons();
+    },
+    onFail() {
+      state.liveRunId = null;
+      setRunButtons();
+    },
+    retry: () => run(clinic, patients),
+  };
+}
+
+function run(clinic, patients) {
+  if (state.liveRunId) return;
+  state.liveRunId = "starting";
+  setRunButtons();
+  panel.scrollTo({ top: 0, behavior: reducedMotion() ? "auto" : "smooth" });
+  startRun(live, clinic, patients, liveOptions(clinic, patients));
+}
+
+async function refreshMeta() {
+  state.meta = await get("/api/meta");
+  const active = state.meta.active_run;
+  if (active && !state.liveRunId) { // the page was reloaded during a run: pick it back up
+    state.liveRunId = active.run_id;
+    setRunButtons();
+    follow(live, active.run_id, active.clinic, liveOptions(active.clinic, active.patients));
+  }
+  return state.meta;
+}
+
 // ---- start
 
 async function boot() {
@@ -113,6 +170,7 @@ async function boot() {
   window.addEventListener("hashchange", route);
   route();
   prefetch();
+  refreshMeta().catch(() => {});
 }
 
 boot();
