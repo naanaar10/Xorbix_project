@@ -26,7 +26,8 @@ How to work:
    one-sentence root cause, the evidence as numbers copied from tool results, revenue_at_stake from
    get_network_kpis, and a recommended fix.
 4. Call assign_specialist for that clinic with a short brief for the specialist.
-Only use numbers that tools returned. Never invent data. When every picked clinic is done, reply
+Only use numbers that tools returned. Never invent data. When you compare a clinic, compare it with
+the network's overall figure (the median or "all" row), not with a narrower slice. When every picked clinic is done, reply
 with a three-sentence summary for the executive team."""
 
 

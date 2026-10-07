@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import json
 
-from chiro_agent.context import (RunContext, action_row, open_slots_tool, parse_rows,
-                                 queue_action_tool, stable_fraction)
+from chiro_agent.context import (RunContext, action_row, open_slots_tool, queue_action_tool,
+                                 stable_fraction)
 from chiro_agent.loop import run_agent
 
 RETENTION_INTERVENTIONS = ["Specific slot offer", "Provider call", "Membership offer",
@@ -30,6 +30,14 @@ Choose the ONE outreach most likely to bring them back, based on why they probab
 - Progress check-in: why finishing the plan matters even when pain eases, plus a maintenance plan.
   Best for patients who stopped after early visits because they feel better.
 - Transport or telehealth option: ride credit or telehealth check-in. Best for transportation issues.
+
+The Director's brief describes the clinic as a whole. Each patient can have a different reason,
+so decide from THIS patient's own signals, and do not default to the clinic-wide answer:
+- last_cancellation_reason, when present, is the strongest signal.
+- payment_type Self-Pay, or cost-related cancellations, point to cost.
+- age_band 65+ with transportation cancellations points to transport.
+- stopping after 2-5 visits with no complaint often means they feel better.
+- provider_works_afternoons false plus scheduling cancellations points to scheduling.
 
 Steps: call get_patient_history first. Use find_open_slots when you offer a time, and
 get_intervention_performance if you want evidence from past runs. Then call queue_action exactly
@@ -61,8 +69,7 @@ the empty dayparts."""
 
 
 def run_retention(ctx: RunContext, clinic: str, brief: str) -> dict:
-    at_risk = parse_rows(ctx.uc_tools.call("find_at_risk_patients",
-                                           {"clinic_id": clinic, "max_patients": ctx.max_at_risk}))
+    at_risk = ctx.uc_tools.fetch("find_at_risk_patients", {"clinic_id": clinic, "max_patients": ctx.max_at_risk})
     by_id = {p["patient_id"]: p for p in at_risk}
     holdout, generic, agent = [], [], []
     for p in at_risk:
@@ -101,7 +108,7 @@ def run_retention(ctx: RunContext, clinic: str, brief: str) -> dict:
 def _single_conversation(ctx: RunContext, clinic: str, brief: str, specialist: str, system: str,
                          target_tool: str, target_args: dict, id_field: str, interventions: list[str],
                          tool_names: list[str]) -> dict:
-    rows = parse_rows(ctx.uc_tools.call(target_tool, target_args))
+    rows = ctx.uc_tools.fetch(target_tool, target_args)
     targets = {r[id_field]: {"value": r.get("lifetime_visit_count") or 1} for r in rows}
     if target_tool == "find_reactivation_candidates":
         value_of = lambda info: 110.0 * 4 * 0.2  # ~4 visits if they come back, 20% response

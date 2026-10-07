@@ -42,6 +42,14 @@ class ToolRegistry:
     def specs(self) -> list[dict]:
         return [t.spec() for t in self.tools.values()]
 
+    def fetch(self, name: str, args: dict) -> Any:
+        """Run a tool for code (not the LLM): full results, still traced."""
+        with mlflow.start_span(name=name, span_type="TOOL") as span:
+            span.set_inputs(args)
+            result = self.tools[name].run(args)
+            span.set_outputs({"rows": len(result) if isinstance(result, list) else result})
+        return result
+
     def call(self, name: str, args: dict) -> str:
         """Run a tool and return a compact JSON string for the LLM. Errors go back to the LLM."""
         with mlflow.start_span(name=name, span_type="TOOL") as span:
