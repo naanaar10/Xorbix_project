@@ -81,3 +81,40 @@ def step_view(step: dict) -> dict | None:
         text += " (rejected by a check)"
     return {"agent": who(agent), "text": text, "write": name in WRITE_TOOLS and not rejected,
             "phase": phase_of(name)}
+
+
+class Narrator:
+    """Lines for a run's steps in the order things happened. The loop records assign_specialist
+    only after the specialist has finished (the specialist runs inside that tool call), so the
+    hand-off line is shown when the specialist's first step arrives, and the late record reads
+    as the specialist finishing."""
+
+    def __init__(self):
+        self._diagnosed: str | None = None          # clinic of the latest diagnosis
+        self._handed: set[tuple[str, str]] = set()  # (clinic, specialist) hand-offs already shown
+        self._open: list[tuple[str, str]] = []      # hand-offs whose specialist hasn't finished
+
+    def views(self, step: dict) -> list[dict]:
+        agent, name = step.get("agent") or "", step.get("name") or ""
+        args = _arguments(step.get("arguments"))
+        out = []
+        if name == "record_diagnosis" and args.get("location_id"):
+            self._diagnosed = args["location_id"]
+        if agent and not agent.startswith("director"):
+            specialist, _, suffix = agent.partition(":")
+            clinic = suffix if suffix.startswith("LOC") else self._diagnosed
+            if clinic and (clinic, specialist) not in self._handed:
+                self._handed.add((clinic, specialist))
+                self._open.append((clinic, specialist))
+                out.append({"agent": "Director", "text": f"Handed {clinic} to the {specialist} specialist",
+                            "write": True, "phase": "decide"})
+        if name == "assign_specialist":
+            clinic = args.get("location_id") or (step.get("arguments") or "").strip()
+            done = next((k for k in reversed(self._open)
+                         if k[0] == clinic and args.get("specialist") in (None, k[1])), None)
+            if done:
+                self._open.remove(done)
+                return out + [{"agent": "Director", "text": f"The {done[1]} specialist finished with {done[0]}",
+                               "write": False, "phase": None}]
+        view = step_view(step)
+        return out + [view] if view else out

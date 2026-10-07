@@ -171,3 +171,23 @@ def test_recent_runs_and_steps():
     assert queries.recent_runs(wh, FQ)[0]["started_at"] == "2026-10-07T15:38:08Z"
     assert queries.run_steps(wh, FQ, "r1") == [{"agent": "Director", "text": "Read the network's KPIs and revenue at stake",
                                               "write": False, "phase": "reason"}]
+
+
+def test_the_latest_story_skips_failed_runs_unless_one_is_picked():
+    wh = FakeWarehouse({"clinic_kpis": [kpi_row()]})
+    queries.clinic_story(wh, FQ, "LOC007")
+    queries.clinic_story(wh, FQ, "LOC007", run_id="r9")
+    latest, pinned = wh.called("clinic_diagnosis")
+    assert "r.status <> 'FAILED'" in latest["sql"]
+    assert "FAILED" not in pinned["sql"]
+
+
+def test_run_steps_show_the_hand_off_before_the_specialist_works():
+    wh = FakeWarehouse({"run_steps": [
+        {"agent": "director", "name": "record_diagnosis", "arguments": '{"location_id": "LOC007"}', "result_preview": "{}"},
+        {"agent": "retention:PT1", "name": "get_patient_history", "arguments": '{"patient_id_in": "PT1"}', "result_preview": "[]"},
+        {"agent": "director", "name": "assign_specialist",
+         "arguments": '{"location_id": "LOC007", "specialist": "retention"}', "result_preview": "{}"}]})
+    assert [s["text"] for s in queries.run_steps(wh, FQ, "r1")] == [
+        "Recorded the diagnosis for LOC007", "Handed LOC007 to the retention specialist",
+        "Read the visit history of PT1", "The retention specialist finished with LOC007"]

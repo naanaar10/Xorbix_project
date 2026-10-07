@@ -104,6 +104,11 @@ function decide(card, status, step, handlers) {
   const box = card.querySelector("textarea");
   const before = card.dataset.status;
   const original = box ? box.dataset.original : card.querySelector(".message").textContent;
+  if (box && status === "Approved" && !box.value.trim()) {
+    error.textContent = "Write a message before approving, or skip this one.";
+    error.hidden = false;
+    return;
+  }
   const body = box && status === "Approved" ? { status, message: box.value } : { status };
   paint(card, status, body.message);
   error.hidden = true;
@@ -122,22 +127,30 @@ function decide(card, status, step, handlers) {
 function approveAll(step, story, handlers) {
   const error = step.querySelector(".act-error");
   const cards = [...step.querySelectorAll('.card[data-status="Pending"]')];
+  const original = new Map(cards.map((c) => [c, c.querySelector("textarea")?.dataset.original ?? c.querySelector(".message").textContent]));
   // Edited messages are saved one by one first, so no edit is lost; then the rest in one call.
-  const edited = cards.filter((c) => c.querySelector("textarea")).map((c) => [c, c.querySelector("textarea").value]);
+  // A message emptied in the text box counts as not edited.
+  const edited = new Map(cards.filter((c) => c.querySelector("textarea")?.value.trim())
+    .map((c) => [c, c.querySelector("textarea").value]));
   for (const card of cards) {
-    const message = edited.find(([c]) => c === card)?.[1];
-    paint(card, "Approved", message);
-    handlers.onDecided?.(card.dataset.id, "Approved", message);
+    paint(card, "Approved", edited.get(card));
+    handlers.onDecided?.(card.dataset.id, "Approved", edited.get(card));
   }
   error.hidden = true;
   updateApproveAll(step);
+  const saved = new Set();
   enqueue(async () => {
-    for (const [card, message] of edited) await send(card, { status: "Approved", message });
+    for (const [card, message] of edited) {
+      await send(card, { status: "Approved", message });
+      saved.add(card);
+    }
     await post("/api/actions/approve-all", { run_id: story.run.run_id, location_id: story.clinic.id });
   }).catch((err) => {
     for (const card of cards) {
+      if (saved.has(card)) continue; // its own save went through: approved, with its edit
       paint(card, "Pending");
-      handlers.onDecided?.(card.dataset.id, "Pending");
+      card.querySelector(".message").textContent = original.get(card);
+      handlers.onDecided?.(card.dataset.id, "Pending", original.get(card));
     }
     error.textContent = `Couldn't approve them all: ${err.message}`;
     error.hidden = false;

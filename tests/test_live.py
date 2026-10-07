@@ -1,4 +1,5 @@
 import threading
+import time
 
 import pytest
 
@@ -51,7 +52,7 @@ def test_act_progress_counts_drafts_for_other_specialists():
     log.step({"agent": "leads:LOC012", "name": "queue_action",
               "arguments": '{"target_id": "L1", "intervention": "Follow-up SMS"}',
               "result_preview": '{"error": "already queued"}'})
-    assert [e["progress"] for e in step_events(log)] == [None, "1 draft", "1 draft"]
+    assert [e["progress"] for e in step_events(log) if e["agent"] == "Leads"] == [None, "1 draft", "1 draft"]
 
 
 def test_wait_returns_new_events_or_times_out():
@@ -103,3 +104,37 @@ def test_a_failed_run_ends_with_an_error_and_frees_the_slot():
     events = follow_to_the_end(live.start("LOC007", 4))
     assert events[-1] == {"type": "error", "message": "RuntimeError: SQL failed: warehouse stopped", "seq": 1}
     assert live.start("LOC007", 4).run_id == "r2"
+
+
+def test_the_hand_off_lights_decide_before_the_specialist_acts():
+    log = RunLog("r1", "LOC007", 4)
+    log.step({"agent": "director", "name": "record_diagnosis", "arguments": '{"location_id": "LOC007"}',
+              "result_preview": "{}"})
+    log.step({"agent": "retention:PT1", "name": "get_patient_history", "arguments": '{"patient_id_in": "PT1"}',
+              "result_preview": "[]"})
+    log.step({"agent": "director", "name": "assign_specialist",
+              "arguments": '{"location_id": "LOC007", "specialist": "retention"}', "result_preview": "{}"})
+    assert [e["phase"] if e["type"] == "phase" else e["text"] for e in log.events] == [
+        "decide", "Recorded the diagnosis for LOC007", "Handed LOC007 to the retention specialist",
+        "act", "Read the visit history of PT1", "The retention specialist finished with LOC007"]
+
+
+def test_a_run_that_hangs_is_stopped_and_frees_the_slot():
+    release = threading.Event()
+
+    def runner(clinic, patients, run_id, log):
+        release.wait(5)
+        log.step({"agent": "director", "name": "get_network_kpis", "arguments": "{}", "result_preview": "[]"})
+        return {"status": "SUCCEEDED"}
+
+    ids = iter(["r1", "r2"])
+    live = LiveRuns(runner, new_id=lambda: next(ids), max_seconds=0.1)
+    hung = live.start("LOC007", 4)
+    events = follow_to_the_end(hung)
+    assert events[-1]["type"] == "error" and "stopped after" in events[-1]["message"]
+    assert live.active() is None
+    second = live.start("LOC007", 4)
+    release.set()
+    assert follow_to_the_end(second)[-1]["type"] == "done"
+    time.sleep(0.1)
+    assert hung.events[-1]["type"] == "error"  # the hung run's late steps and finish are ignored

@@ -6,7 +6,9 @@ import threading
 import time
 from typing import Callable
 
-from app.steps import PHASES, phase_of, step_view
+from app.steps import PHASES, Narrator
+
+MAX_RUN_SECONDS = 360  # a run still going after this is stopped: the model or warehouse hung
 
 
 class RunLog:
@@ -21,6 +23,7 @@ class RunLog:
         self._phase = -1
         self._patients_seen: set[str] = set()
         self._drafts = 0
+        self._narrator = Narrator()
         self._cond = threading.Condition()
 
     def _append(self, event: dict) -> None:
@@ -36,20 +39,22 @@ class RunLog:
 
     def phase(self, phase: str) -> None:
         with self._cond:
-            self._advance(phase)
+            if not self.finished:
+                self._advance(phase)
 
     def step(self, step: dict) -> None:
-        view = step_view(step)
         with self._cond:
-            phase = phase_of(step.get("name") or "")
-            if phase:
-                self._advance(phase)
+            if self.finished:  # a run stopped for taking too long may still be talking
+                return
             agent = step.get("agent") or ""
             if agent.startswith("retention:"):
                 self._patients_seen.add(agent)
-            if view and view["write"] and step.get("name") == "queue_action":
+            views = self._narrator.views(step)
+            if step.get("name") == "queue_action" and any(v["write"] for v in views):
                 self._drafts += 1
-            if view:
+            for view in views:
+                if view["phase"]:
+                    self._advance(view["phase"])
                 self._append({"type": "step", **view, "progress": self._progress()})
 
     def _progress(self) -> str | None:
@@ -63,6 +68,8 @@ class RunLog:
 
     def finish(self, result: dict) -> None:
         with self._cond:
+            if self.finished:
+                return
             self._append({"type": "done", "run_id": self.run_id, "clinic": self.clinic,
                           "status": result.get("status", "SUCCEEDED"), "drafts": self._drafts,
                           "seconds": round(time.monotonic() - self.started)})
@@ -70,6 +77,8 @@ class RunLog:
 
     def fail(self, message: str) -> None:
         with self._cond:
+            if self.finished:
+                return
             self._append({"type": "error", "message": message[:500]})
             self.finished = True
 
@@ -91,8 +100,8 @@ Runner = Callable[[str, int, str, RunLog], dict]
 
 
 class LiveRuns:
-    def __init__(self, runner: Runner, new_id: Callable[[], str]):
-        self._runner, self._new_id = runner, new_id
+    def __init__(self, runner: Runner, new_id: Callable[[], str], max_seconds: float = MAX_RUN_SECONDS):
+        self._runner, self._new_id, self._max_seconds = runner, new_id, max_seconds
         self._logs: dict[str, RunLog] = {}
         self._active: RunLog | None = None
         self._lock = threading.Lock()
@@ -104,15 +113,22 @@ class LiveRuns:
             log = RunLog(self._new_id(), clinic, patients)
             self._logs[log.run_id] = log
             self._active = log
-        threading.Thread(target=self._run, args=(log,), name=f"live-{log.run_id}", daemon=True).start()
+        # A hung run would keep the slot forever; stopping it frees Run the Director again.
+        watchdog = threading.Timer(self._max_seconds, log.fail,
+                                   args=(f"The run was stopped after {self._max_seconds:g} seconds without finishing.",))
+        watchdog.daemon = True
+        watchdog.start()
+        threading.Thread(target=self._run, args=(log, watchdog), name=f"live-{log.run_id}", daemon=True).start()
         return log
 
-    def _run(self, log: RunLog) -> None:
+    def _run(self, log: RunLog, watchdog: threading.Timer) -> None:
         log.phase("observe")  # the KPI snapshot already exists; the Director starts by reading it
         try:
             log.finish(self._runner(log.clinic, log.patients, log.run_id, log))
         except Exception as e:  # noqa: BLE001 - shown in the live panel
             log.fail(f"{type(e).__name__}: {e}")
+        finally:
+            watchdog.cancel()
 
     def get(self, run_id: str) -> RunLog | None:
         return self._logs.get(run_id)

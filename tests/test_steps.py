@@ -1,4 +1,4 @@
-from app.steps import PHASES, phase_of, phrase, step_view, who
+from app.steps import PHASES, Narrator, phase_of, phrase, step_view, who
 
 
 def test_phases_follow_the_tool_families():
@@ -47,3 +47,40 @@ def test_rejected_writes_are_not_marked_as_writes():
                       "result_preview": '{"error": "Slot already offered"}'})
     assert view["write"] is False
     assert view["text"] == "Drafted outreach for PT1: Membership offer (rejected by a check)"
+
+
+DIAGNOSE = {"agent": "director", "name": "record_diagnosis", "arguments": '{"location_id": "LOC007"}',
+            "result_preview": "{}"}
+PATIENT = {"agent": "retention:PT1", "name": "get_patient_history", "arguments": '{"patient_id_in": "PT1"}',
+           "result_preview": "[]"}
+ASSIGN = {"agent": "director", "name": "assign_specialist",
+          "arguments": '{"location_id": "LOC007", "specialist": "retention"}', "result_preview": "{}"}
+
+
+def lines(steps):
+    narrator = Narrator()
+    return [(v["agent"], v["text"], v["write"]) for step in steps for v in narrator.views(step)]
+
+
+def test_the_hand_off_is_shown_when_the_specialist_starts():
+    assert lines([DIAGNOSE, PATIENT, dict(PATIENT, agent="retention:PT2"), ASSIGN]) == [
+        ("Director", "Recorded the diagnosis for LOC007", True),
+        ("Director", "Handed LOC007 to the retention specialist", True),
+        ("Retention", "Read the visit history of PT1", False),
+        ("Retention", "Read the visit history of PT1", False),
+        ("Director", "The retention specialist finished with LOC007", False)]
+
+
+def test_hand_offs_for_clinic_named_specialists_and_code_assigned_ones():
+    leads = {"agent": "leads:LOC012", "name": "get_stale_leads", "arguments": '{"clinic_id": "LOC012"}',
+             "result_preview": "[]"}
+    auto = {"agent": "director", "kind": "auto", "name": "assign_specialist", "arguments": "LOC012",
+            "result_preview": "Assigned by code after the Director stopped."}
+    assert lines([leads, auto]) == [
+        ("Director", "Handed LOC012 to the leads specialist", True),
+        ("Leads", "Pulled open leads at LOC012", False),
+        ("Director", "The leads specialist finished with LOC012", False)]
+
+
+def test_a_hand_off_without_specialist_steps_reads_as_before():
+    assert lines([DIAGNOSE, ASSIGN])[-1] == ("Director", "Handed LOC007 to the retention specialist", True)

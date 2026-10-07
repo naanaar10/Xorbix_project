@@ -8,7 +8,7 @@ import math
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from app.steps import step_view
+from app.steps import Narrator
 
 FLAG_ABOVE = 150_000   # dollars a year at stake before a clinic counts as out of alignment
 GOAL = 250e6
@@ -97,7 +97,8 @@ def network(wh: Any, fq: str) -> dict:
 
 def clinic_story(wh: Any, fq: str, clinic_id: str, run_id: str | None = None) -> dict:
     """One clinic's four-step story, from `run_id` or else the latest run that diagnosed it."""
-    pinned = "AND d.run_id = :run_id" if run_id else ""
+    # A picked run is shown as it is; otherwise a failed run never replaces a good story.
+    pinned = "AND d.run_id = :run_id" if run_id else "AND r.status <> 'FAILED'"
     dx_params = {"clinic_id": clinic_id, **({"run_id": run_id} if run_id else {})}
     with ThreadPoolExecutor(max_workers=3) as pool:
         kpi_job = pool.submit(wh.query, f"""/* clinic_kpis */
@@ -213,4 +214,5 @@ def run_steps(wh: Any, fq: str, run_id: str) -> list[dict]:
     rows = wh.query(f"""/* run_steps */
         SELECT agent, step, kind, name, arguments, result_preview FROM {fq}.agent_steps
         WHERE run_id = :run_id ORDER BY step""", {"run_id": run_id})
-    return [view for view in (step_view(r) for r in rows) if view]
+    narrator = Narrator()
+    return [view for row in rows for view in narrator.views(row)]
