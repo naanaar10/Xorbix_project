@@ -315,11 +315,13 @@ source = { virtual = "." }
 [package.dev-dependencies]
 dev = [
     { name = "databricks-sdk" },
+    { name = "fastapi" },
     { name = "httpx" },
     { name = "mlflow-skinny" },
     { name = "openai" },
     { name = "pandas" },
     { name = "pytest" },
+    { name = "uvicorn" },
 ]
 
 [package.metadata]
@@ -327,11 +329,13 @@ dev = [
 [package.metadata.requires-dev]
 dev = [
     { name = "databricks-sdk", specifier = ">=0.60" },
+    { name = "fastapi", specifier = ">=0.110" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "mlflow-skinny", specifier = ">=3.1" },
     { name = "openai", specifier = ">=1.40" },
     { name = "pandas", specifier = ">=2.2" },
     { name = "pytest", specifier = ">=8" },
+    { name = "uvicorn", specifier = ">=0.29" },
 ]
 
 [[package]]

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Growth Director</title>
+  <meta name="description" content="Finds where chiropractic clinics lose revenue, works out why, and queues the fix for staff to approve.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1><a href="#">Growth Director</a></h1>
+      <p>Finds where clinics lose revenue, works out why, and queues the fix for staff to approve.</p>
+    </div>
+    <div class="topbar-right">
+      <p class="goal" id="goal"></p>
+      <button type="button" class="link" id="open-drawer">How it works</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="rail" aria-label="Clinics">
+      <p class="rail-title" id="rail-title"></p>
+      <div class="spine" id="spine"></div>
+    </nav>
+    <main class="panel" id="panel">
+      <section class="live" id="live" hidden aria-label="Live run"></section>
+      <div id="view"><p class="notice">Loading the clinic network…</p></div>
+    </main>
+  </div>
+  <dialog class="drawer" id="drawer" aria-labelledby="drawer-title">
+    <div class="drawer-head">
+      <h2 id="drawer-title">How it works</h2>
+      <button type="button" class="link" id="close-drawer">Close</button>
+    </div>
+    <div id="drawer-body"></div>
+  </dialog>
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>
