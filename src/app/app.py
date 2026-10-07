@@ -109,7 +109,9 @@ with st.sidebar:
         run_id = None
         st.caption("No runs yet. Run the Director, or the nightly job.")
     else:
-        labels = {r.run_id: f"{pd.to_datetime(r.started_at):%b %d, %H:%M} ({r.trigger}, {r.clinics_investigated} clinics)"
+        def when(ts) -> str:
+            return f"{pd.Timestamp(ts).tz_localize('UTC').tz_convert('America/Chicago'):%b %d, %-I:%M %p}"
+        labels = {r.run_id: f"{when(r.started_at)} ({r.trigger}, {r.clinics_investigated} clinics)"
                   for r in runs.itertuples()}
         ids = list(labels)
         default = st.session_state.get("run_id", ids[0])
@@ -200,7 +202,7 @@ with tabs[2]:
                       "offered_slot", "rationale"],
             column_config={
                 "action_id": None,
-                "status": st.column_config.SelectboxColumn("Decision", options=["Pending", "Approved", "Rejected"], width="small"),
+                "status": st.column_config.SelectboxColumn("Decision", options=["Pending", "Approved", "Rejected"], width="medium"),
                 "location_id": "Clinic", "specialist": "Specialist", "target_id": "Patient or lead",
                 "intervention": "Outreach", "channel": "Channel", "offered_slot": "Offered slot",
                 "message": st.column_config.TextColumn("Message (editable)", width="large"),
