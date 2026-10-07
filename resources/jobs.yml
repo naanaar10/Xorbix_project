@@ -21,3 +21,20 @@ resources:
               - databricks-sdk>=0.60
               - openai>=1.40
               - mlflow>=3.1
+
+    generate_data:
+      name: chiro-growth-generate-data
+      description: Simulates the 50-clinic network (~$100M revenue) with planted problems and verifies them.
+      tasks:
+        - task_key: generate
+          spark_python_task:
+            python_file: ../src/jobs/generate_data.py
+            parameters:
+              - --catalog=${var.catalog}
+              - --schema=${resources.schemas.chiro_growth.name}
+              - --src-dir=${workspace.file_path}/src
+          environment_key: default
+      environments:
+        - environment_key: default
+          spec:
+            environment_version: "4"
