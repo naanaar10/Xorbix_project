@@ -110,7 +110,9 @@ with st.sidebar:
         st.caption("No runs yet. Run the Director, or the nightly job.")
     else:
         def when(ts) -> str:
-            return f"{pd.Timestamp(ts).tz_localize('UTC').tz_convert('America/Chicago'):%b %d, %-I:%M %p}"
+            ts = pd.Timestamp(ts)
+            ts = ts.tz_localize("UTC") if ts.tzinfo is None else ts
+            return f"{ts.tz_convert('America/Chicago'):%b %d, %-I:%M %p}"
         labels = {r.run_id: f"{when(r.started_at)} ({r.trigger}, {r.clinics_investigated} clinics)"
                   for r in runs.itertuples()}
         ids = list(labels)

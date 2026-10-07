@@ -16,6 +16,10 @@ html, body, [class*="st-"], .stMarkdown, button, input, textarea, select {{
   font-variant-numeric: tabular-nums;
 }}
 .block-container {{ padding-top: 2rem; max-width: 1180px; }}
+/* Keep Streamlit's icon font: the rule above would otherwise turn icons into their names. */
+[data-testid="stIconMaterial"], .material-symbols-rounded, [class*="material-symbols"] {{
+  font-family: 'Material Symbols Rounded' !important;
+}}
 h1, h2, h3 {{ font-family: 'Familjen Grotesk', sans-serif; color: {INK}; letter-spacing: -0.01em; }}
 h1 {{ font-weight: 700; font-size: 2.1rem; margin-bottom: 0; }}
 
