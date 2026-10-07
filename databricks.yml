@@ -28,6 +28,14 @@ variables:
     default: 20
 
 targets:
+  # Your own sandbox: resources get a [dev you] prefix and schedules stay paused.
   dev:
     mode: development
     default: true
+
+  # Any other workspace (for example the judges'): pick it with --profile or DATABRICKS_HOST.
+  # Nothing workspace-specific is hard-coded; override variables with --var if needed.
+  prod:
+    mode: production
+    workspace:
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}

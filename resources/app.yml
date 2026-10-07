@@ -1,7 +1,7 @@
 resources:
   apps:
     chiro_growth_app:
-      name: chiro-growth
+      name: chiro-growth-${bundle.target}
       description: Growth Director - clinic diagnoses, action queue and measured impact.
       source_code_path: ../src
       config:
