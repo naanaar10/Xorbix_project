@@ -25,7 +25,7 @@ variables:
     default: 3
   max_agent_patients:
     description: At-risk patients per clinic that get an individual agent review.
-    default: 20
+    default: 30
 
 targets:
   # Your own sandbox: resources get a [dev you] prefix and schedules stay paused.

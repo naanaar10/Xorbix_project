@@ -133,7 +133,7 @@ databricks bundle deploy -t prod -p other --var="catalog=main" --var="llm_endpoi
 | `warehouse_id` | looked up by name: `Serverless Starter Warehouse` | SQL warehouse for tools and the app |
 | `llm_endpoint` | `databricks-gpt-oss-120b` | Model serving endpoint the agents call |
 | `clinics_per_run` | `3` | Clinics the Director investigates per run |
-| `max_agent_patients` | `20` | Patients per clinic that get an individual agent review |
+| `max_agent_patients` | `30` | Patients per clinic that get an individual agent review |
 
 ## Repository layout
 

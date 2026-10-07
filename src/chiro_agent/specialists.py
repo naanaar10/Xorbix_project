@@ -34,10 +34,13 @@ Choose the ONE outreach most likely to bring them back, based on why they probab
 The Director's brief describes the clinic as a whole. Each patient can have a different reason,
 so decide from THIS patient's own signals, and do not default to the clinic-wide answer:
 - last_cancellation_reason, when present, is the strongest signal.
+- No cancellation reason, but their chiropractor does not work afternoons
+  (provider_works_afternoons false): they most likely could not get a time that works. Offer an
+  afternoon slot with another chiropractor.
 - payment_type Self-Pay, or cost-related cancellations, point to cost.
 - age_band 65+ with transportation cancellations points to transport.
-- stopping after 2-5 visits with no complaint often means they feel better.
-- provider_works_afternoons false plus scheduling cancellations points to scheduling.
+- Stopping after 2-5 visits with no complaint and a chiropractor who works afternoons often means
+  they feel better.
 
 Steps: call get_patient_history first. Use find_open_slots when you offer a time, and
 get_intervention_performance if you want evidence from past runs. Then call queue_action exactly
