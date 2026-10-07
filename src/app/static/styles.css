@@ -255,6 +255,31 @@ blockquote.agent-voice { margin: 0; padding-left: 16px; border-left: 3px solid v
 .live.failed { border-color: var(--raspberry); }
 .live-error { margin-top: 12px; color: var(--raspberry); font-size: 14px; display: grid; gap: 4px; }
 
+/* How it works drawer */
+.drawer {
+  position: fixed; inset: 0 0 0 auto; margin: 0; width: min(520px, 100vw); height: 100vh; max-height: none;
+  padding: 24px 28px; border: 0; border-left: 1px solid var(--line); background: var(--mineral); color: var(--ink);
+  overflow-y: auto;
+}
+.drawer::backdrop { background: rgba(16, 40, 46, 0.25); }
+.drawer[open] { animation: drawer-in 260ms var(--ease) both; }
+@keyframes drawer-in { from { opacity: 0; transform: translateX(24px); } }
+.drawer-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 18px; }
+.drawer-head h2 { font-size: 20px; font-weight: 700; }
+.loop { padding-left: 20px; margin: 0 0 22px; display: grid; gap: 8px; font-size: 14px; }
+.loop b { font-weight: 600; }
+.facts { display: grid; grid-template-columns: 90px 1fr; gap: 10px 14px; font-size: 14px; margin: 0 0 24px; }
+.facts dt { color: var(--slate); }
+.facts dd { margin: 0; }
+.facts a { color: var(--indigo); }
+.facts select { width: 100%; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
+.drawer h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+.log { list-style: none; padding: 0; margin: 0; font-size: 13.5px; }
+.log li { display: grid; grid-template-columns: 80px 1fr; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.log li.note { display: block; border: 0; }
+.log .who { color: var(--slate); }
+.log li.write .what { color: var(--indigo); font-weight: 600; }
+
 @media (max-width: 900px) {
   .strip { grid-template-columns: repeat(3, 1fr); }
   body { height: auto; overflow: visible; display: block; }

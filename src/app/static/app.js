@@ -2,6 +2,7 @@
 // time. The URL hash holds the selected clinic (#LOC007), so reloads and the back button work.
 import { get } from "./api.js";
 import { renderEmpty } from "./empty.js";
+import { openDrawer } from "./drawer.js";
 import { follow, startRun } from "./live.js";
 import { reducedMotion } from "./motion.js";
 import { esc, money } from "./format.js";
@@ -11,6 +12,7 @@ import { renderStory } from "./story.js";
 const view = document.getElementById("view");
 const panel = document.getElementById("panel");
 const live = document.getElementById("live");
+const drawer = document.getElementById("drawer");
 const SLOW_MS = 4000;
 const WAKING = "Waking up the SQL warehouse. The first load can take up to a minute.";
 
@@ -151,6 +153,23 @@ async function refreshMeta() {
   return state.meta;
 }
 
+// ---- how it works
+
+async function openHowItWorks() {
+  try {
+    const meta = await refreshMeta();
+    const story = state.clinic ? await loadStory(state.clinic).catch(() => null) : null;
+    openDrawer(drawer, { meta, runId: state.runId, shownRunId: story?.run?.run_id ?? (state.runId || null), onPickRun: pickRun });
+  } catch (error) {
+    openDrawer(drawer, { error: error.message });
+  }
+}
+
+function pickRun(runId) {
+  state.runId = runId;
+  if (state.clinic) show(state.clinic);
+}
+
 // ---- start
 
 async function boot() {
@@ -173,4 +192,6 @@ async function boot() {
   refreshMeta().catch(() => {});
 }
 
+document.getElementById("open-drawer").addEventListener("click", openHowItWorks);
+document.getElementById("close-drawer").addEventListener("click", () => drawer.close());
 boot();
