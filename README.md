@@ -3,8 +3,10 @@
 An agentic AI prototype on Databricks for a chiropractic clinic network that does about $100M a
 year and wants to reach $250M. Every night a **Growth Director** agent works out which clinics
 are losing the most revenue, investigates why, and hands each problem to a **specialist agent**
-that drafts concrete outreach for staff to approve. Results are then measured against randomized
-control groups.
+that drafts concrete outreach for staff to approve. Two more specialists then work on the whole
+network: **Marketing** moves budget to the channels that win patients cheapest, and **Loyalty**
+offers Wellness plans and asks for referrals when a patient finishes care. Results are measured
+against randomized control groups.
 
 Built for the Xorbix × University of Iowa Databricks hackathon on Databricks Free Edition.
 All data is synthetic.
@@ -15,8 +17,8 @@ All data is synthetic.
 |---|---|---|
 | **Observe** | Rebuild a per-clinic KPI snapshot and price each gap in dollars a year (retention, leads, capacity). | `observe` task, `clinic_kpis` table |
 | **Reason** | The Director reads the snapshot, picks the clinics with the most revenue at stake, and drills into each with tools until it can name the root cause (a step, a provider, a time of day). | `reason_decide_act` task |
-| **Decide** | It records the diagnosis and assigns a specialist: Retention, Leads or Capacity. | `clinic_diagnoses` table |
-| **Act** | The specialist reviews patients or leads one by one and queues outreach (a specific open slot, a membership offer, a speed-to-lead call...). Staff approve, edit or skip each one in the app. | `action_queue` table, app |
+| **Decide** | It records the diagnosis and assigns a specialist: Retention, Leads or Capacity. Then it hands the whole network to the Marketing and Loyalty specialists. | `clinic_diagnoses` table |
+| **Act** | The specialist reviews patients or leads one by one and queues outreach (a specific open slot, a membership offer, a speed-to-lead call, a Wellness plan, a referral ask...) or a marketing budget move priced by a tool. Staff approve, edit or skip each one in the app. | `action_queue` table, app |
 | **Measure** | At-risk patients are randomized before any agent sees them: 20% get nothing (holdout), 20% a generic reminder, 60% agent-chosen outreach. Outcomes are simulated and compared. | `measure` task, `impact_summary` table |
 
 What makes it agentic rather than a dashboard:
@@ -26,6 +28,11 @@ What makes it agentic rather than a dashboard:
 - Specialists are sub-agents the Director dispatches through a tool call (`assign_specialist`).
 - The retention specialist reasons about each patient individually from their signals (last
   cancellation reason, payment type, provider schedule) and picks a different outreach for each.
+- The Marketing specialist proposes budget moves; a UC function (`price_budget_shift`) prices each
+  one and the write tool refuses moves that break the caps (a channel loses at most a quarter of
+  its budget, and at most doubles).
+- The Loyalty specialist decides per patient who just finished a care plan: Wellness plan offer,
+  referral ask, or both.
 - Past results feed back in through `get_intervention_performance`.
 - Every run is traced in MLflow: each model call and tool call, with inputs and outputs.
 
@@ -35,8 +42,9 @@ What makes it agentic rather than a dashboard:
 generate_data job ──► 11 Delta tables (Unity Catalog schema)
                          │
 growth_director job      ▼
-  observe ──────────► clinic_kpis + 13 agent tools as UC table functions
+  observe ──────────► clinic_kpis + 17 agent tools as UC table functions
   reason_decide_act ─► Director ──assign_specialist──► Retention / Leads / Capacity
+                         └──── whole network ────────► Marketing / Loyalty
                          │                                   │
                          ▼                                   ▼
                     clinic_diagnoses                    action_queue ◄── staff approve (app)
@@ -47,15 +55,17 @@ Databricks App ◄─────────┘  (also runs the Director live o
 
 - **Agent tools** are Unity Catalog table functions (`src/sql/tools.sql`). The agents discover them
   from Unity Catalog at runtime: each function's comment becomes the tool description the model
-  reads. Write actions (`record_diagnosis`, `assign_specialist`, `queue_action`) are Python.
+  reads. Write actions (`record_diagnosis`, `assign_specialist`, `queue_action`, `queue_budget_shift`,
+  `record_network_finding`) are Python.
 - **Model**: a Databricks Foundation Model endpoint through its OpenAI-compatible API
   (default `databricks-gpt-oss-120b`, set by the `llm_endpoint` variable).
 - **Agent loop**: a plain tool-calling loop (`src/chiro_agent/loop.py`), traced with MLflow.
 - **App**: a small FastAPI server and one hand-written page (no build step) on Databricks Apps
-  (`src/app/`). The 50 clinics are drawn as a spine. Five tabs: Overview (the Director's summary
-  and the path to $250M), Clinics (every KPI for all 50, sortable; each clinic opens as a
-  four-step story), Diagnoses, Outreach (approve, edit or skip every draft) and Results (agent vs
-  generic reminder vs nothing, with the outcome model's assumptions). "Run the Director" runs the
+  (`src/app/`). The 50 clinics are drawn as a spine. Five tabs: Overview (the Director's summary,
+  the path to $250M and a what-if planner whose sliders redraw it live), Clinics (every KPI for
+  all 50, sortable; each clinic opens as a four-step story), Problems, Messages (approve, edit or
+  skip every draft) and Results (agent vs plain reminder vs no message, with the outcome model's
+  assumptions). All wording is written so a 10-year-old can follow it. "Run the Director" runs the
   agent live on one clinic and shows each step as it happens. Every dollar figure has a "How we
   got this" breakdown: each step of the calculation with the real inputs, built by
   `src/app/explain.py` from the same values as the figure.
