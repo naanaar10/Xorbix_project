@@ -1,7 +1,8 @@
 import pytest
 
-from app import queries
+from app import explain, queries
 from fakes import FakeWarehouse
+from test_explain import BRIDGE, CHICAGO, IMPACT, MILWAUKEE
 
 FQ = "cat.sch"
 
@@ -43,7 +44,8 @@ def test_network_counts_flagged_clinics_and_builds_the_bridge():
     assert [c["flagged"] for c in net["clinics"]] == [False, True, True]
     assert [b["key"] for b in net["bridge"]] == ["leads", "capacity", "retention", "new_clinics"]
     assert net["bridge"][2]["value"] == 0.0
-    assert net["bridge"][3] == {"key": "new_clinics", "value": 206e6, "label": "Open about 103 new clinics"}
+    assert {k: v for k, v in net["bridge"][3].items() if k != "rows"} == {
+        "key": "new_clinics", "value": 206e6, "label": "Open about 103 new clinics"}
 
 
 def test_network_never_shows_a_negative_remainder():
@@ -51,8 +53,8 @@ def test_network_never_shows_a_negative_remainder():
         "network_clinics": [{"location_id": "LOC001", "city": "Des Moines", "annual_revenue": 2e6,
                              "total_revenue_at_stake": 0.0, "largest_lever": "leads"}],
         "network_bridge": [{"leads_value": 300e6, "capacity_value": 0.0, "retention_value": 0.0}]})
-    assert queries.network(wh, FQ)["bridge"][3] == {"key": "new_clinics", "value": 0.0,
-                                                    "label": "No new clinics needed"}
+    new_clinics = queries.network(wh, FQ)["bridge"][3]
+    assert (new_clinics["value"], new_clinics["label"]) == (0.0, "No new clinics needed")
 
 
 def test_clinic_story_without_a_diagnosis():
@@ -63,7 +65,8 @@ def test_clinic_story_without_a_diagnosis():
     assert story["lever"] == "retention"
     assert [k["label"] for k in story["kpis"]] == ["Plan completion", "Patients going quiet"]
     assert story["kpis"][0] == {"label": "Plan completion", "value": 0.34, "median": 0.51, "unit": "pct",
-                                "better": "higher"}
+                                "better": "higher",
+                                "meaning": "Of the care plans that ended in the last year, the share the patient finished."}
     assert story["clinic"]["flagged"] is True
     assert wh.called("clinic_actions") == []
 
@@ -249,7 +252,7 @@ def test_run_overview_defaults_to_the_latest_nightly_run():
     assert data["controls"] == {"LOC007": {"holdout": 1, "generic": 2}}
     assert [a["arm"] for a in data["impact"]] == ["agent", "holdout"]
     assert data["impact"][0]["recovered_revenue"] == 9000.0
-    assert all(c["params"] == {"run_id": "r1"} for c in wh.calls if c["name"] != "run_pick")
+    assert all(c["params"] == {"run_id": "r1"} for c in wh.calls if c["name"] not in ("run_pick", "outcome_inputs"))
 
 
 def test_run_overview_for_a_picked_run():
@@ -261,7 +264,8 @@ def test_run_overview_for_a_picked_run():
 
 def test_run_overview_without_any_run():
     wh = FakeWarehouse()
-    assert queries.run_overview(wh, FQ) == {"run": None, "diagnoses": [], "actions": [], "controls": {}, "impact": []}
+    assert queries.run_overview(wh, FQ) == {"run": None, "diagnoses": [], "actions": [], "controls": {}, "impact": [],
+                                            "impact_math": None}
     assert [c["name"] for c in wh.calls] == ["run_pick"]
 
 
@@ -271,3 +275,56 @@ def test_approve_all_for_a_whole_run():
     call = wh.called("approve_all")[0]
     assert "location_id" not in call["sql"] and call["params"] == {"run_id": "r1"}
     assert "status = 'Pending'" in call["sql"] and "arm = 'agent'" in call["sql"]
+
+
+def math_row(label, value, how=""):
+    return {"label": label, "value": value, "how": how}
+
+
+def test_network_explains_its_numbers():
+    wh = FakeWarehouse({
+        "network_clinics": [dict(MILWAUKEE, location_id="LOC007", city="Milwaukee", annual_revenue=2e6,
+                                 largest_lever="retention"),
+                            dict(CHICAGO, location_id="LOC012", city="Chicago", annual_revenue=2e6, largest_lever="leads")],
+        "network_bridge": [BRIDGE]})
+    net = queries.network(wh, FQ)
+    assert net["at_stake_math"]["rows"] == [math_row("Chicago", "$1.14M", "slow lead replies"),
+                                            math_row("Milwaukee", "$468K", "patients drop out"),
+                                            math_row("Total a year", "$1.60M", "$1.14M + $468K")]
+    assert "$150K" in net["at_stake_math"]["note"]
+    bridge = explain.bridge_math(BRIDGE, revenue=4e6, clinic_count=2, goal=250e6)
+    assert [b["rows"] for b in net["bridge"]] == [bridge["leads"], bridge["capacity"], bridge["retention"],
+                                                 bridge["new_clinics"]]
+    assert net["units"] == explain.unit_math(MILWAUKEE)
+
+
+def test_clinic_story_explains_its_stake_and_its_results():
+    k = kpi_row(**MILWAUKEE, network_dropouts=38024.0)
+    impact = [dict(a, run_id="r1", started_at="2026-10-07T15:38:08Z", trigger="scheduled") for a in IMPACT]
+    wh = FakeWarehouse({"clinic_kpis": [k], "clinic_diagnosis": [diagnosis_row()], "clinic_impact": impact})
+    story = queries.clinic_story(wh, FQ, "LOC007")
+    assert story["math"] == dict(explain.clinic_math(k), units=explain.unit_math(k))
+    assert story["impact_math"] == explain.outcome_math(IMPACT, 38024.0, MILWAUKEE["avg_visit_revenue"])
+    assert "network_dropouts" in wh.called("clinic_kpis")[0]["sql"]
+
+
+def test_a_clinic_without_results_has_no_results_math():
+    story = queries.clinic_story(FakeWarehouse({"clinic_kpis": [kpi_row(**CHICAGO)]}), FQ, "LOC007")
+    assert story["impact_math"] is None and story["math"]["total"]["value"] == "$1.14M"
+
+
+def test_run_overview_explains_each_diagnosis_and_the_results():
+    wh = FakeWarehouse({
+        "run_pick": [RUN],
+        "run_diagnoses": [dict(MILWAUKEE, location_id="LOC007", city="Milwaukee", problem_type="retention",
+                               root_cause="Plans stall", evidence="34% vs 51%", recommended_fix="Offer afternoons",
+                               specialist="retention", revenue_at_stake=397_371.0)],
+        "run_impact": IMPACT,
+        "outcome_inputs": [{"annual_dropouts": 38024.0, "avg_visit_revenue": 110.87444698630249}]})
+    data = queries.run_overview(wh, FQ)
+    dx = data["diagnoses"][0]
+    assert dx["at_stake"] == MILWAUKEE["total_revenue_at_stake"]
+    assert dx["math"] == explain.clinic_math(MILWAUKEE)
+    assert set(dx) == {"location_id", "city", "problem_type", "root_cause", "evidence", "recommended_fix",
+                       "specialist", "at_stake", "math"}
+    assert data["impact_math"] == explain.outcome_math(IMPACT, 38024.0, 110.87444698630249)
