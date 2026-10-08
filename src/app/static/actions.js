@@ -2,7 +2,7 @@
 // draft is approved). Used by the clinic story's cards and by the Outreach tab's table: any element
 // with class "item", data-id and data-status, holding a .message, a .decide and a .card-error.
 import { post } from "./api.js";
-import { esc, plural, slotLabel } from "./format.js";
+import { esc, factsHtml, plural, slotLabel } from "./format.js";
 
 const FIRST_CARDS = 6;
 
@@ -32,6 +32,7 @@ function card(a, hidden) {
   return `<article class="card item" data-id="${esc(a.action_id)}" data-status="${esc(a.status)}"${hidden ? " hidden" : ""}>
     <p class="what">${esc(a.intervention)}<span>${esc(a.channel ?? "")}</span></p>
     <p class="who">${esc(who)}</p>
+    ${factsHtml(a.facts)}
     <p class="message" tabindex="0" title="Click to edit">${esc(a.message ?? "")}</p>
     ${a.rationale ? `<details><summary>Why this message</summary><p>${esc(a.rationale)}</p></details>` : ""}
     <div class="decide">${decision(a.status)}</div>

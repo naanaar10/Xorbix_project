@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 
-from chiro_agent.context import (RunContext, action_row, open_slots_tool, queue_action_tool,
+from chiro_agent.context import (RunContext, action_row, open_slots_tool, personal_rules, queue_action_tool,
                                  stable_fraction)
 from chiro_agent.loop import run_agent
 
@@ -44,19 +44,21 @@ so decide from THIS patient's own signals, and do not default to the clinic-wide
 
 Steps: call get_patient_history first. Use find_open_slots when you offer a time, and
 get_intervention_performance if you want evidence from past runs. Then call queue_action exactly
-once. The message must be warm, under 320 characters, start with "Hi there", contain no names
-and no medical claims. The rationale is one short sentence a 10-year-old could follow, naming
-the signals you used (no column names)."""
+once. In the message, use this patient's own facts: how many of their visits they have done, how
+long since their last visit, and their plan. The rationale is one short sentence a 10-year-old
+could follow, naming the signals you used (no column names)."""
 
 LEADS_SYSTEM = """You are the Leads Specialist for clinic {clinic}.
 Manager's brief: {brief}
 
 Open leads are going cold because first responses are slow. Call get_stale_leads, then queue a
-follow-up for up to {n} of them with queue_action, newest first:
+follow-up for up to {n} of them with queue_action, newest first. A Speed-to-lead call or Follow-up
+SMS can offer a first visit: call find_open_slots and give each lead a different slot.
 - Speed-to-lead call: phone call within the hour, for New leads.
 - Follow-up SMS: for leads already contacted once.
 - Nurture email: for older leads.
-Messages: warm, under 320 characters, start with "Hi there", no names, no medical claims.
+Each lead is different: in the message use how they found us (source) and when they asked (age_days).
+Use num_touchpoints only to pick the channel. No two messages should read the same.
 Finish with one sentence recommending the process change that would stop leads going cold."""
 
 CAPACITY_SYSTEM = """You are the Capacity Specialist for clinic {clinic}.
@@ -67,7 +69,8 @@ find_reactivation_candidates to find lapsed loyal patients, and queue up to {n} 
 queue_action:
 - Off-peak slot offer: offer a specific open afternoon slot (include it in offered_slot).
 - Wellness check-in: invite a lapsed patient back for a maintenance visit.
-Messages: warm, under 320 characters, start with "Hi there", no names, no medical claims.
+In each message use the patient's own facts: how many visits they have had, how long since their
+last visit and the time of day they usually come.
 Finish with one sentence recommending the process change that would cut no-shows or fill
 the empty dayparts."""
 
@@ -100,7 +103,7 @@ def run_retention(ctx: RunContext, clinic: str, brief: str) -> dict:
     tools = ctx.uc_tools.subset(["get_patient_history", "get_intervention_performance"])
     tools.add(open_slots_tool(ctx))
     tools.add(queue)
-    system = RETENTION_SYSTEM.format(clinic=clinic, brief=brief)
+    system = RETENTION_SYSTEM.format(clinic=clinic, brief=brief) + "\n\n" + personal_rules(ctx.clinic_name(clinic))
     for p in agent:
         run_agent(ctx.client, ctx.settings.llm_endpoint, f"retention:{p['patient_id']}", system,
                   "Patient to win back:\n" + json.dumps(by_id[p["patient_id"]]), tools,
@@ -126,7 +129,8 @@ def _single_conversation(ctx: RunContext, clinic: str, brief: str, specialist: s
         tools.add(open_slots_tool(ctx))
     tools.add(queue)
     result = run_agent(ctx.client, ctx.settings.llm_endpoint, f"{specialist}:{clinic}",
-                       system.format(clinic=clinic, brief=brief, n=ctx.max_followups),
+                       system.format(clinic=clinic, brief=brief, n=ctx.max_followups) + "\n\n"
+                       + personal_rules(ctx.clinic_name(clinic)),
                        f"Work on clinic {clinic} now.", tools, max_steps=ctx.max_followups + 6,
                        on_step=ctx.add_step)
     return {"specialist": specialist, "clinic": clinic, "candidates": len(rows),
@@ -138,7 +142,7 @@ def run_leads(ctx: RunContext, clinic: str, brief: str) -> dict:
         ctx, clinic, brief, "leads", LEADS_SYSTEM, "get_stale_leads",
         {"clinic_id": clinic, "max_leads": ctx.max_followups * 2}, "lead_id",
         ["Speed-to-lead call", "Follow-up SMS", "Nurture email"],
-        ["get_lead_response_stats", "get_stale_leads"])
+        ["get_lead_response_stats", "get_stale_leads", "find_open_slots"])
 
 
 def run_capacity(ctx: RunContext, clinic: str, brief: str) -> dict:

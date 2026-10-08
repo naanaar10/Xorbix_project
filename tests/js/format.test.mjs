@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { agentHtml, duration, esc, isWorse, kpiScale, kpiValue, leverProblem, money, plural, slotLabel, when } from "../../src/app/static/format.js";
+import { agentHtml, duration, esc, factsHtml, isWorse, kpiScale, kpiValue, leverProblem, money, plural, slotLabel, when } from "../../src/app/static/format.js";
 
 test("money uses K below a million and M above", () => {
   assert.equal(money(467808), "$468K");
@@ -53,4 +53,11 @@ test("every problem the agents can find has plain words", () => {
   for (const lever of ["retention", "leads", "capacity", "marketing", "loyalty"]) {
     assert.notEqual(leverProblem(lever), "revenue is leaking", lever);
   }
+});
+
+test("factsHtml lists what the agent knew about the person, escaped, and nothing when there are no facts", () => {
+  assert.equal(factsHtml(["3 of 24 visits done", "Found us: <Website>"]),
+    '<ul class="known" aria-label="What we know about them"><li>3 of 24 visits done</li><li>Found us: &lt;Website&gt;</li></ul>');
+  assert.equal(factsHtml([]), "");
+  assert.equal(factsHtml(undefined), "");
 });

@@ -59,6 +59,12 @@ export function when(iso) {
 }
 
 const DAY = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" });
+// What the agent knew about the person it wrote to (worked out from the data on the server).
+export function factsHtml(facts) {
+  if (!facts?.length) return "";
+  return `<ul class="known" aria-label="What we know about them">${facts.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>`;
+}
+
 export function slotLabel(slot) {
   const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})(.*)$/.exec(slot ?? "");
   if (!m) return slot ?? "";

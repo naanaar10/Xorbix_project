@@ -4,7 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 
 from chiro_agent.config import Settings
@@ -32,9 +32,17 @@ class RunContext:
     offered_slots: set[str] = field(default_factory=set)
     actions_queued: int = 0
     queued_rows: list[dict] = field(default_factory=list)
+    clinic_names: dict[str, str] | None = None
 
     def table(self, name: str) -> str:
         return f"{self.settings.fq}.{name}"
+
+    def clinic_name(self, location_id: str) -> str:
+        """The clinic's name for messages, e.g. "Milwaukee Spine & Wellness" (looked up once per run)."""
+        if self.clinic_names is None:
+            rows = self.wh.query(f"/* clinic_names */ SELECT location_id, location_name FROM {self.table('locations')}")
+            self.clinic_names = {r["location_id"]: r["location_name"] for r in rows}
+        return self.clinic_names.get(location_id, "the clinic")
 
     def add_step(self, step: dict) -> None:
         self.steps.append(step)
@@ -43,6 +51,32 @@ class RunContext:
         self.wh.insert(self.table("action_queue"), rows)
         self.queued_rows.extend(rows)
         self.actions_queued += sum(1 for r in rows if r["arm"] != "holdout")
+
+
+def personal_rules(clinic: str | None = None) -> str:
+    """How every message to a patient or lead is written. `clinic` is the clinic's name, or None
+    when each person's clinic is in their own details (clinic_name)."""
+    opening = (f'Start with "Hi there, it\'s {clinic}."' if clinic
+               else 'Start with "Hi there, it\'s " and the patient\'s clinic_name.')
+    return f"""Message rules. Make each message personal to this one person, using the facts the tools give you:
+- Use at least two facts about them, like how many visits they have done, how long since their last
+  visit, the plan they finished, the time of day they usually come, how they found us, or when they asked.
+  Use them the way a friendly receptionist would, not by reading their file back: never quote how many
+  times we called or texted them, and write where they found us in plain words ("our website",
+  "a social media ad", "a friend").
+- {opening}
+- Only offer a time that find_open_slots returned, written exactly as that slot's "when" field, and put
+  the slot in offered_slot. If you have no slot, never make up a time; ask them to reply instead.
+- Never write ID codes (like PT0012345, PRV0043 or LD0106080). Never mention their age or how they pay:
+  those can guide your choice, but stay out of the words.
+- Warm, under 320 characters. No names (we don't have them), no medical claims."""
+
+
+def friendly_time(slot_date: Any, slot_time: str) -> str:
+    """'2026-10-08', '14:30' -> 'Thursday, Oct 8 at 2:30 PM'."""
+    d = date.fromisoformat(str(slot_date)[:10])
+    hour, minute = (int(x) for x in str(slot_time).split(":")[:2])
+    return f"{d:%A}, {d:%b} {d.day} at {hour % 12 or 12}:{minute:02d} {'AM' if hour < 12 else 'PM'}"
 
 
 def stable_fraction(*parts: str) -> float:
@@ -106,7 +140,7 @@ def queue_action_tool(ctx: RunContext, *, location_id: str, specialist: str, tar
                         "target_id": {"type": "string", "description": f"The {target_type} id"},
                         "intervention": {"type": "string", "enum": interventions},
                         "channel": {"type": "string", "enum": ["SMS", "Phone call", "Email"]},
-                        "message": {"type": "string", "description": "Short, warm message to send (max 320 characters, no names, no medical claims)"},
+                        "message": {"type": "string", "description": "Short, warm message written for this one person from their own facts (max 320 characters, no names, no ID codes, no medical claims)"},
                         "offered_slot": {"type": "string", "description": "Slot offered, exactly as 'YYYY-MM-DD HH:MM with PROVIDER_ID' (e.g. '2026-10-09 13:30 with PRV0043'), if any"},
                         "rationale": {"type": "string", "description": "One short, plain sentence a 10-year-old could follow, naming the signals behind this choice (no column names)"},
                     }},
@@ -140,7 +174,8 @@ def open_slots_tool(ctx: RunContext) -> Tool:
     def run(args: dict) -> list[dict]:
         wanted = int(args.get("max_slots") or 8)
         rows = base.run({**args, "max_slots": wanted + len(ctx.offered_slots)})
-        free = [dict(r, slot=slot_label(r)) for r in rows if slot_label(r) not in ctx.offered_slots]
+        free = [dict(r, slot=slot_label(r), when=friendly_time(r["slot_date"], r["slot_time"]))
+                for r in rows if slot_label(r) not in ctx.offered_slots]
         return free[:wanted]
 
     return Tool(base.name, base.description + " Slots already offered in this run are hidden.",

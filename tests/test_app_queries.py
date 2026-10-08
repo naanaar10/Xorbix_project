@@ -348,3 +348,20 @@ def test_whole_network_findings_and_moves_are_labelled_whole_network():
     assert data["diagnoses"][0]["city"] == "Whole network" and data["diagnoses"][0]["at_stake"] == 5.1e6
     assert data["diagnoses"][0]["math"] is None
     assert data["actions"][0]["city"] == "Whole network"
+
+
+def test_each_message_carries_what_the_agent_knew_about_the_person():
+    facts = [{"action_id": "A1", "target_type": "patient", "plan_type": "Corrective", "plan_status": "Active",
+              "visits_completed": 3, "prescribed_visits": 24, "days_since_visit": 26, "morning_share": 0.8}]
+    wh = FakeWarehouse({"clinic_kpis": [kpi_row()], "clinic_diagnosis": [diagnosis_row()],
+                        "clinic_actions": [{"action_id": "A1", "arm": "agent", "status": "Pending"},
+                                           {"action_id": "A2", "arm": "agent", "status": "Pending"}],
+                        "clinic_impact": [], "action_facts": facts,
+                        "run_pick": [RUN], "run_actions": [{"action_id": "A1", "location_id": "LOC007",
+                                                            "arm": "agent", "status": "Pending"}]})
+    story = queries.clinic_story(wh, FQ, "LOC007")
+    assert story["actions"][0]["facts"] == ["3 of 24 visits done", "Last visit 26 days ago",
+                                            "Usually comes in the morning"]
+    assert story["actions"][1]["facts"] == []
+    assert wh.called("action_facts")[0]["params"] == {"run_id": "r1", "clinic_id": "LOC007"}
+    assert queries.run_overview(wh, FQ)["actions"][0]["facts"][0] == "3 of 24 visits done"
