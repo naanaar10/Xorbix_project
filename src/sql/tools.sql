@@ -314,7 +314,7 @@ RETURN
 -- @@
 CREATE OR REPLACE FUNCTION {fq}.get_marketing_channels()
 RETURNS TABLE (channel STRING, yearly_spend DOUBLE, leads BIGINT, new_patients BIGINT,
-  cost_per_new_patient DOUBLE, share_of_budget DOUBLE)
+  cost_per_new_patient DOUBLE, percent_of_budget DOUBLE)
 COMMENT 'Marketing for the whole network over the last 12 months, one row per channel: money spent, leads, new patients, cost per new patient (cheapest first) and share of the budget. Use it to find money that would win more new patients in another channel.'
 RETURN
   WITH ref AS (SELECT as_of FROM {fq}.network_metadata),
@@ -323,7 +323,7 @@ RETURN
     FROM {fq}.marketing_campaigns c CROSS JOIN ref
     WHERE c.start_date > date_sub(ref.as_of, 365) AND c.start_date <= ref.as_of
     GROUP BY c.channel)
-  SELECT channel, ROUND(spend), leads, conv, ROUND(spend / conv, 2), ROUND(spend / SUM(spend) OVER (), 3)
+  SELECT channel, ROUND(spend), leads, conv, ROUND(spend / conv, 2), ROUND(spend / SUM(spend) OVER () * 100, 1)
   FROM ch
   ORDER BY spend / conv;
 
@@ -352,9 +352,9 @@ RETURN
 
 -- @@
 CREATE OR REPLACE FUNCTION {fq}.get_loyalty_stats()
-RETURNS TABLE (location_id STRING, city STRING, finishers_last_year BIGINT, wellness_uptake DOUBLE,
-  referral_rate DOUBLE, extra_wellness_plans DOUBLE, extra_referrers DOUBLE, yearly_value DOUBLE)
-COMMENT 'Patients who finished a care plan in the last year, by clinic: the share who then started a Wellness plan, the share who referred someone, how many more would do each if the clinic matched the best 10% of clinics, and what that is worth a year. The first rows are the typical clinic (TYPICAL) and the best 10% (TOP_10_PERCENT); then clinics, furthest behind first.'
+RETURNS TABLE (location_id STRING, city STRING, finishers_last_year BIGINT, wellness_plan_percent DOUBLE,
+  referral_percent DOUBLE, extra_wellness_plans BIGINT, extra_referrers BIGINT, yearly_value DOUBLE)
+COMMENT 'Patients who finished a care plan in the last year, by clinic: the percent who then started a Wellness plan, the percent who referred someone, how many more would do each if the clinic matched the best 10% of clinics, and what that is worth a year. The first rows are the typical clinic (TYPICAL) and the best 10% (TOP_10_PERCENT); then clinics, furthest behind first.'
 RETURN
   WITH ref AS (SELECT as_of FROM {fq}.network_metadata),
   finishers AS (
@@ -380,15 +380,18 @@ RETURN
                  * (SELECT AVG(CAST(converted_flag AS DOUBLE)) FROM {fq}.leads WHERE source = 'Referral')
                  * (SELECT MAX(revenue_per_patient) FROM {fq}.clinic_kpis) AS referrer_value),
   clinics AS (
-    SELECT p.location_id, l.city, p.finishers, ROUND(p.uptake, 3) AS uptake, ROUND(p.referral_rate, 3) AS referral_rate,
-           ROUND(GREATEST(0, t.top_uptake - p.uptake) * p.finishers, 1) AS extra_plans,
-           ROUND(GREATEST(0, t.top_referral - p.referral_rate) * p.finishers, 1) AS extra_referrers,
+    SELECT p.location_id, l.city, p.finishers, ROUND(p.uptake * 100, 1) AS uptake,
+           ROUND(p.referral_rate * 100, 1) AS referral_rate,
+           CAST(ROUND(GREATEST(0, t.top_uptake - p.uptake) * p.finishers) AS BIGINT) AS extra_plans,
+           CAST(ROUND(GREATEST(0, t.top_referral - p.referral_rate) * p.finishers) AS BIGINT) AS extra_referrers,
            ROUND(GREATEST(0, t.top_uptake - p.uptake) * p.finishers * v.plan_value
                  + GREATEST(0, t.top_referral - p.referral_rate) * p.finishers * v.referrer_value) AS yearly_value
     FROM per p JOIN {fq}.locations l ON p.location_id = l.location_id CROSS JOIN top t CROSS JOIN v)
-  SELECT 'TYPICAL', 'Typical clinic', med_finishers, ROUND(med_uptake, 3), ROUND(med_referral, 3), 0D, 0D, 0D FROM top
+  SELECT 'TYPICAL', 'Typical clinic', med_finishers, ROUND(med_uptake * 100, 1), ROUND(med_referral * 100, 1),
+    CAST(0 AS BIGINT), CAST(0 AS BIGINT), 0D FROM top
   UNION ALL
-  SELECT 'TOP_10_PERCENT', 'Best 10% of clinics', NULL, ROUND(top_uptake, 3), ROUND(top_referral, 3), 0D, 0D, 0D FROM top
+  SELECT 'TOP_10_PERCENT', 'Best 10% of clinics', NULL, ROUND(top_uptake * 100, 1), ROUND(top_referral * 100, 1),
+    CAST(0 AS BIGINT), CAST(0 AS BIGINT), 0D FROM top
   UNION ALL
   SELECT * FROM (SELECT * FROM clinics ORDER BY yearly_value DESC);
 
