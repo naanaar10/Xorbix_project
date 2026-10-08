@@ -85,3 +85,16 @@ def test_server_errors_come_back_as_json():
     client, _ = make_client(wh=Broken())
     response = client.get("/api/network")
     assert response.status_code == 500 and "warehouse is stopped" in response.json()["error"]
+
+
+def test_run_overview_meta_assumptions_and_run_wide_approval():
+    client, backend = make_client({"run_pick": [{"run_id": "r1", "started_at": "2026-10-08 07:32:52",
+                                                 "trigger": "scheduled", "status": "SUCCEEDED", "summary": "S",
+                                                 "clinics_investigated": 3}]})
+    assert client.get("/api/run").json()["run"]["run_id"] == "r1"
+    assert client.get("/api/run", params={"run_id": "r1"}).status_code == 200
+    assumptions = client.get("/api/meta").json()["assumptions"]
+    assert len(assumptions["reasons"]) == 5 and len(assumptions["interventions"]) == 7
+    assert len(assumptions["rows"]) == 5 and all(len(r) == 7 for r in assumptions["rows"])
+    assert client.post("/api/actions/approve-all", json={"run_id": "r1"}).json() == {"ok": True}
+    assert backend.wh.called("approve_all")[0]["params"] == {"run_id": "r1"}

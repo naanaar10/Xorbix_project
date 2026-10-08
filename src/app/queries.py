@@ -20,7 +20,7 @@ ACTION_FIELDS = ("action_id", "target_type", "target_id", "intervention", "chann
                  "offered_slot", "rationale", "status", "signal")
 DIAGNOSIS_FIELDS = ("problem_type", "root_cause", "evidence", "recommended_fix", "specialist",
                     "revenue_at_stake")
-IMPACT_FIELDS = ("arm", "patients", "patients_returned", "return_rate", "lift_vs_holdout",
+IMPACT_FIELDS = ("arm", "patients", "patients_returned", "return_rate", "recovered_revenue", "lift_vs_holdout",
                  "annualized_network_revenue")
 
 # Lever -> KPI bars: (label, clinic column, network median column, unit, which way is better)
@@ -33,6 +33,14 @@ KPIS = {
                  ("Mornings booked", "am_utilization", "med_am_util", "pct", "higher"),
                  ("No-shows", "no_show_rate", "med_no_show", "pct", "lower")],
 }
+# The all-clinics table: (key in the payload, clinic_kpis column, network median column)
+TABLE_COLUMNS = (("revenue", "annual_revenue", None),
+                 ("completion", "plan_completion_rate", "med_completion"),
+                 ("conversion", "lead_conversion_rate", "med_conversion"),
+                 ("reply_hours", "median_response_hours", "med_response_hours"),
+                 ("no_shows", "no_show_rate", "med_no_show"),
+                 ("afternoons", "pm_utilization", "med_pm_util"),
+                 ("quiet", "at_risk_patients", None))
 BRIDGE_LEVERS = (("leads_value", "leads", "Answer every lead within an hour"),
                  ("capacity_value", "capacity", "Fill afternoons to 85%"),
                  ("retention_value", "retention", "Keep patients on plan like the top clinics"))
@@ -73,13 +81,20 @@ def utc_iso(value: Any) -> str | None:
 def network(wh: Any, fq: str) -> dict:
     with ThreadPoolExecutor(max_workers=2) as pool:
         clinics_job = pool.submit(wh.query, f"""/* network_clinics */
-            SELECT location_id, city, annual_revenue, total_revenue_at_stake, largest_lever
+            SELECT location_id, city, annual_revenue, total_revenue_at_stake, largest_lever,
+                   {", ".join(column for _, column, _ in TABLE_COLUMNS[1:])},
+                   {", ".join(median for _, _, median in TABLE_COLUMNS[1:] if median)}
             FROM {fq}.clinic_kpis ORDER BY location_id""")
         bridge_job = pool.submit(wh.query, BRIDGE_SQL.format(fq=fq))
         rows, bridge_rows = clinics_job.result(), bridge_job.result()
     clinics = [{"id": r["location_id"], "city": r["city"], "at_stake": r["total_revenue_at_stake"] or 0.0,
-                "lever": r["largest_lever"], "flagged": (r["total_revenue_at_stake"] or 0) >= FLAG_ABOVE}
+                "lever": r["largest_lever"], "flagged": (r["total_revenue_at_stake"] or 0) >= FLAG_ABOVE,
+                **{key: r.get(column) for key, column, _ in TABLE_COLUMNS}}
                for r in rows]
+    quiet = sorted(r.get("at_risk_patients") or 0 for r in rows)
+    first = rows[0] if rows else {}
+    medians = {key: first.get(median) for key, _, median in TABLE_COLUMNS if median}
+    medians["quiet"] = quiet[(len(quiet) - 1) // 2] if quiet else None  # a real clinic's value, like percentile_approx
     revenue = sum(r["annual_revenue"] or 0 for r in rows)
     values = bridge_rows[0] if bridge_rows else {}
     bridge = [{"key": key, "label": label, "value": max(0.0, values.get(column) or 0.0)}
@@ -92,7 +107,7 @@ def network(wh: Any, fq: str) -> dict:
     flagged = [c for c in clinics if c["flagged"]]
     return {"revenue": revenue, "goal": GOAL, "clinic_count": len(clinics), "flagged_count": len(flagged),
             "at_stake_total": sum(c["at_stake"] for c in flagged), "flag_above": FLAG_ABOVE,
-            "clinics": clinics, "bridge": bridge}
+            "clinics": clinics, "medians": medians, "bridge": bridge}
 
 
 def clinic_story(wh: Any, fq: str, clinic_id: str, run_id: str | None = None) -> dict:
@@ -112,7 +127,7 @@ def clinic_story(wh: Any, fq: str, clinic_id: str, run_id: str | None = None) ->
             ORDER BY r.started_at DESC, d.created_at DESC LIMIT 1""", dx_params)
         impact_job = pool.submit(wh.query, f"""/* clinic_impact */
             SELECT s.run_id, r.started_at, r.trigger, s.arm, s.patients, s.patients_returned,
-                   s.return_rate, s.lift_vs_holdout, s.annualized_network_revenue
+                   s.return_rate, s.recovered_revenue, s.lift_vs_holdout, s.annualized_network_revenue
             FROM {fq}.impact_summary s JOIN {fq}.agent_runs r ON s.run_id = r.run_id
             WHERE EXISTS (SELECT 1 FROM {fq}.clinic_diagnoses d WHERE d.run_id = s.run_id
                           AND d.location_id = :clinic_id AND d.problem_type = 'retention')
@@ -155,6 +170,55 @@ def clinic_story(wh: Any, fq: str, clinic_id: str, run_id: str | None = None) ->
     }
 
 
+def _arms(rows: list[dict]) -> list[dict]:
+    return sorted(rows, key=lambda r: ARM_ORDER.index(r["arm"]) if r["arm"] in ARM_ORDER else len(ARM_ORDER))
+
+
+def run_overview(wh: Any, fq: str, run_id: str | None = None) -> dict:
+    """One whole run for the Diagnoses, Outreach and Results tabs: `run_id`, or else the latest
+    nightly run that didn't fail (the latest successful live run if there is no nightly one)."""
+    if run_id:
+        where, params = "run_id = :run_id", {"run_id": run_id}
+    else:
+        where, params = "status <> 'FAILED'", {}
+    runs = wh.query(f"""/* run_pick */
+        SELECT run_id, started_at, trigger, status, summary, clinics_investigated FROM {fq}.agent_runs
+        WHERE {where} ORDER BY CASE WHEN trigger <> 'app' THEN 0 ELSE 1 END, started_at DESC LIMIT 1""", params)
+    if not runs:
+        return {"run": None, "diagnoses": [], "actions": [], "controls": {}, "impact": []}
+    run = dict(runs[0], started_at=utc_iso(runs[0]["started_at"]))
+    by_run = {"run_id": run["run_id"]}
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        dx_job = pool.submit(wh.query, f"""/* run_diagnoses */
+            SELECT d.location_id, k.city, d.problem_type, d.root_cause, d.evidence, d.recommended_fix,
+                   d.specialist, d.revenue_at_stake
+            FROM {fq}.clinic_diagnoses d LEFT JOIN {fq}.clinic_kpis k ON d.location_id = k.location_id
+            WHERE d.run_id = :run_id ORDER BY d.revenue_at_stake DESC""", by_run)
+        actions_job = pool.submit(wh.query, f"""/* run_actions */
+            SELECT a.action_id, a.location_id, k.city, a.specialist, a.arm, a.target_type, a.target_id,
+                   a.intervention, a.channel, a.message, a.offered_slot, a.rationale, a.status, a.signal
+            FROM {fq}.action_queue a LEFT JOIN {fq}.clinic_kpis k ON a.location_id = k.location_id
+            WHERE a.run_id = :run_id ORDER BY k.total_revenue_at_stake DESC, a.expected_value DESC""", by_run)
+        impact_job = pool.submit(wh.query, f"""/* run_impact */
+            SELECT arm, patients, patients_returned, return_rate, recovered_revenue, lift_vs_holdout,
+                   annualized_network_revenue
+            FROM {fq}.impact_summary WHERE run_id = :run_id""", by_run)
+        diagnoses, action_rows, impact_rows = dx_job.result(), actions_job.result(), impact_job.result()
+    controls: dict[str, dict[str, int]] = {}
+    for r in action_rows:
+        if r["arm"] != "agent":
+            arms = controls.setdefault(r["location_id"], {})
+            arms[r["arm"]] = arms.get(r["arm"], 0) + 1
+    return {
+        "run": run,
+        "diagnoses": diagnoses,
+        "actions": [{"location_id": r["location_id"], "city": r.get("city"), "specialist": r.get("specialist"),
+                     **{f: r.get(f) for f in ACTION_FIELDS}} for r in action_rows if r["arm"] == "agent"],
+        "controls": controls,
+        "impact": [{f: r.get(f) for f in IMPACT_FIELDS} for r in _arms(impact_rows)],
+    }
+
+
 def _choose_impact(rows: list[dict], story_run: str) -> tuple[list[dict], dict | None]:
     """The story's own measurement when it is big enough; otherwise the latest run that is."""
     runs: dict[str, list[dict]] = {}
@@ -173,9 +237,9 @@ def _choose_impact(rows: list[dict], story_run: str) -> tuple[list[dict], dict |
         chosen = story_run
     else:
         return [], None
-    run_rows = sorted(runs[chosen], key=lambda r: ARM_ORDER.index(r["arm"]) if r["arm"] in ARM_ORDER else 9)
+    run_rows = _arms(runs[chosen])
     first = run_rows[0]
-    return ([{f: r[f] for f in IMPACT_FIELDS} for r in run_rows],
+    return ([{f: r.get(f) for f in IMPACT_FIELDS} for r in run_rows],
             {"run_id": chosen, "started_at": utc_iso(first["started_at"]), "trigger": first["trigger"],
              "agent_patients": agent_patients(run_rows), "same_as_story": chosen == story_run})
 
@@ -196,11 +260,13 @@ def set_action(wh: Any, fq: str, action_id: str, status: str, message: str | Non
         WHERE action_id = :action_id AND arm = 'agent'""", params)
 
 
-def approve_all(wh: Any, fq: str, run_id: str, clinic_id: str) -> None:
+def approve_all(wh: Any, fq: str, run_id: str, clinic_id: str | None = None) -> None:
+    """Approve every pending agent draft of a run, or only one clinic's."""
+    params = {"run_id": run_id, **({"clinic_id": clinic_id} if clinic_id else {})}
     wh.query(f"""/* approve_all */
         UPDATE {fq}.action_queue SET status = 'Approved', reviewed_at = current_timestamp()
-        WHERE run_id = :run_id AND location_id = :clinic_id AND arm = 'agent' AND status = 'Pending'""",
-             {"run_id": run_id, "clinic_id": clinic_id})
+        WHERE run_id = :run_id {"AND location_id = :clinic_id" if clinic_id else ""}
+          AND arm = 'agent' AND status = 'Pending'""", params)
 
 
 def recent_runs(wh: Any, fq: str, limit: int = 15) -> list[dict]:

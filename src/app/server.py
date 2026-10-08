@@ -18,12 +18,17 @@ from pydantic import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import queries
+from chiro_agent.measure import INTERVENTION_COLUMN, RETURN_PROBABILITY
 from app.live import LiveRuns, RunInProgress
 
 STATIC = Path(__file__).parent / "static"
 CLINIC_ID = re.compile(r"^LOC\d{3}$")
 NETWORK_TTL = 120   # seconds; clinic KPIs only change when the nightly job rebuilds them
 POLL_SECONDS = 10   # how long an events request waits for something new
+# The outcome model's assumptions, shown on the Results tab: chance a patient comes back, by their
+# hidden reason for stopping (rows) and the outreach they got (columns).
+ASSUMPTIONS = {"reasons": list(RETURN_PROBABILITY), "interventions": list(INTERVENTION_COLUMN),
+               "rows": [list(p) for p in RETURN_PROBABILITY.values()]}
 
 
 @dataclass
@@ -57,7 +62,7 @@ class Decision(BaseModel):
 
 class ApproveAll(BaseModel):
     run_id: str
-    location_id: str
+    location_id: str | None = None  # None approves the whole run
 
 
 class RunRequest(BaseModel):
@@ -142,6 +147,10 @@ def create_app(backend: Backend) -> FastAPI:
         events, finished = log.wait(after, POLL_SECONDS)
         return {"events": events, "finished": finished}
 
+    @api.get("/api/run")
+    def get_run(run_id: str | None = None) -> dict:
+        return queries.run_overview(backend.wh, backend.fq, run_id or None)
+
     @api.get("/api/runs/{run_id}/steps")
     def get_steps(run_id: str) -> dict:
         return {"steps": queries.run_steps(backend.wh, backend.fq, run_id)}
@@ -149,7 +158,7 @@ def create_app(backend: Backend) -> FastAPI:
     @api.get("/api/meta")
     def get_meta() -> dict:
         active = backend.live.active()
-        return {"model": backend.model, "mlflow_url": backend.mlflow_url,
+        return {"model": backend.model, "mlflow_url": backend.mlflow_url, "assumptions": ASSUMPTIONS,
                 "runs": queries.recent_runs(backend.wh, backend.fq),
                 "active_run": ({"run_id": active.run_id, "clinic": active.clinic, "patients": active.patients}
                                if active else None)}

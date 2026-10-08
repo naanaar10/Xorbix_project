@@ -191,3 +191,83 @@ def test_run_steps_show_the_hand_off_before_the_specialist_works():
     assert [s["text"] for s in queries.run_steps(wh, FQ, "r1")] == [
         "Recorded the diagnosis for LOC007", "Handed LOC007 to the retention specialist",
         "Read the visit history of PT1", "The retention specialist finished with LOC007"]
+
+
+def clinic_row(location_id, city, at_stake, **changes):
+    row = {"location_id": location_id, "city": city, "annual_revenue": 2e6, "total_revenue_at_stake": at_stake,
+           "largest_lever": "retention", "plan_completion_rate": 0.5, "lead_conversion_rate": 0.3,
+           "median_response_hours": 3.0, "no_show_rate": 0.09, "pm_utilization": 0.75, "at_risk_patients": 100,
+           "med_completion": 0.51, "med_conversion": 0.29, "med_response_hours": 3.1, "med_no_show": 0.09,
+           "med_pm_util": 0.76}
+    row.update(changes)
+    return row
+
+
+def test_network_lists_every_kpi_and_the_network_medians():
+    wh = FakeWarehouse({"network_clinics": [clinic_row("LOC001", "Des Moines", 0.0, at_risk_patients=90),
+                                            clinic_row("LOC007", "Milwaukee", 468_000.0, plan_completion_rate=0.34,
+                                                       at_risk_patients=169),
+                                            clinic_row("LOC012", "Chicago", 1_100_000.0, at_risk_patients=118)]})
+    net = queries.network(wh, FQ)
+    assert net["clinics"][1] == {"id": "LOC007", "city": "Milwaukee", "at_stake": 468_000.0, "lever": "retention",
+                                 "flagged": True, "revenue": 2e6, "completion": 0.34, "conversion": 0.3,
+                                 "reply_hours": 3.0, "no_shows": 0.09, "afternoons": 0.75, "quiet": 169}
+    assert net["medians"] == {"completion": 0.51, "conversion": 0.29, "reply_hours": 3.1, "no_shows": 0.09,
+                              "afternoons": 0.76, "quiet": 118}
+
+
+RUN = {"run_id": "r1", "started_at": "2026-10-08 07:32:52", "trigger": "scheduled", "status": "SUCCEEDED",
+       "summary": "Three clinics leak $2.5M a year.", "clinics_investigated": 3}
+
+
+def test_run_overview_defaults_to_the_latest_nightly_run():
+    wh = FakeWarehouse({
+        "run_pick": [RUN],
+        "run_diagnoses": [{"location_id": "LOC012", "city": "Chicago", "problem_type": "leads", "root_cause": "Slow replies",
+                           "evidence": "37 h", "recommended_fix": "Call within an hour", "specialist": "leads",
+                           "revenue_at_stake": 1.1e6}],
+        "run_actions": [{"action_id": "A1", "location_id": "LOC012", "city": "Chicago", "specialist": "leads",
+                         "arm": "agent", "target_type": "lead", "target_id": "L1", "status": "Pending",
+                         "message": "Hi there"},
+                        {"action_id": "H1", "location_id": "LOC007", "city": "Milwaukee", "specialist": "retention",
+                         "arm": "holdout"},
+                        {"action_id": "G1", "location_id": "LOC007", "city": "Milwaukee", "specialist": "retention",
+                         "arm": "generic"},
+                        {"action_id": "G2", "location_id": "LOC007", "city": "Milwaukee", "specialist": "retention",
+                         "arm": "generic"}],
+        "run_impact": [{"arm": "holdout", "patients": 21, "patients_returned": 1, "return_rate": 0.048,
+                        "recovered_revenue": 900.0, "lift_vs_holdout": 0.0, "annualized_network_revenue": 0.0},
+                       {"arm": "agent", "patients": 30, "patients_returned": 9, "return_rate": 0.3,
+                        "recovered_revenue": 9000.0, "lift_vs_holdout": 0.252, "annualized_network_revenue": 11.1e6}]})
+    data = queries.run_overview(wh, FQ)
+    pick = wh.called("run_pick")[0]
+    assert "status <> 'FAILED'" in pick["sql"] and "trigger <> 'app'" in pick["sql"] and pick["params"] == {}
+    assert data["run"] == dict(RUN, started_at="2026-10-08T07:32:52Z")
+    assert data["diagnoses"][0]["city"] == "Chicago"
+    assert [a["action_id"] for a in data["actions"]] == ["A1"]
+    assert data["actions"][0]["city"] == "Chicago" and data["actions"][0]["location_id"] == "LOC012"
+    assert data["controls"] == {"LOC007": {"holdout": 1, "generic": 2}}
+    assert [a["arm"] for a in data["impact"]] == ["agent", "holdout"]
+    assert data["impact"][0]["recovered_revenue"] == 9000.0
+    assert all(c["params"] == {"run_id": "r1"} for c in wh.calls if c["name"] != "run_pick")
+
+
+def test_run_overview_for_a_picked_run():
+    wh = FakeWarehouse({"run_pick": [RUN]})
+    queries.run_overview(wh, FQ, "r1")
+    pick = wh.called("run_pick")[0]
+    assert "run_id = :run_id" in pick["sql"] and pick["params"] == {"run_id": "r1"}
+
+
+def test_run_overview_without_any_run():
+    wh = FakeWarehouse()
+    assert queries.run_overview(wh, FQ) == {"run": None, "diagnoses": [], "actions": [], "controls": {}, "impact": []}
+    assert [c["name"] for c in wh.calls] == ["run_pick"]
+
+
+def test_approve_all_for_a_whole_run():
+    wh = FakeWarehouse()
+    queries.approve_all(wh, FQ, "r1")
+    call = wh.called("approve_all")[0]
+    assert "location_id" not in call["sql"] and call["params"] == {"run_id": "r1"}
+    assert "status = 'Pending'" in call["sql"] and "arm = 'agent'" in call["sql"]
