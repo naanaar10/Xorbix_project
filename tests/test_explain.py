@@ -165,7 +165,7 @@ def test_results_show_how_each_headline_number_was_worked_out():
         row("More patients came back", "25.2 pts", "30.0% − 4.8%")]
     assert math["recovered"] == [
         row("Agent patients who came back", "9"),
-        row("Visits left on their plans", "138"),
+        row("Visits left on their plans", "138", "the visits those 9 patients still had to go"),
         row("Visits we count", "96.6", "70% of 138: patients who come back don't all finish"),
         row("Recovered", "$10.7K", "96.6 × $110.87 per visit")]
     assert math["annualized"] == [

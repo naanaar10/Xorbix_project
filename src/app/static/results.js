@@ -1,6 +1,7 @@
 // Results tab: did the agent's outreach bring more patients back than a generic reminder or nothing?
 // Also exports the arm bars, which the clinic story's "Did it work" step reuses.
 import { esc, money, pct, runKind, when } from "./format.js";
+import { howWeGot, outcomeMath } from "./math.js";
 import { countAll, growBars } from "./motion.js";
 
 const ARMS = { agent: "Agent outreach", generic: "Generic reminder", holdout: "Nothing" };
@@ -26,6 +27,7 @@ export function renderResults(view, data, assumptions) {
         <div class="metric"><p class="value" data-count="${agent.recovered_revenue ?? 0}">${money(0)}</p><p class="label">recovered by agent outreach in this run</p></div>
         <div class="metric"><p class="value" data-count="${agent.annualized_network_revenue}">${money(0)}</p><p class="label">a year if used across the network</p></div>
       </div>
+      ${data.impact_math ? howWeGot("How we got these three numbers", outcomeMath(data.impact_math)) : ""}
       ${armBars(impact)}
       <p class="projection">Patients were split at random before any agent saw them, so the three groups are comparable. Outcomes are simulated: outreach isn't really sent in this prototype.</p>
       ${assumptionsTable(assumptions)}`;

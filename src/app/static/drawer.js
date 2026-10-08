@@ -4,8 +4,8 @@ import { get } from "./api.js";
 import { esc, plural, runKind, when } from "./format.js";
 
 const LOOP = [
-  ["Observe", "Rebuilds every clinic's KPIs and prices each gap in dollars a year."],
-  ["Reason", "The Director picks the clinics with the most at stake and digs with 13 SQL tools until it can name the cause."],
+  ["Observe", "Measures every clinic (bookings, lead replies, finished care plans) and prices each gap in dollars a year."],
+  ["Reason", "The Director picks the clinics with the most at stake and digs into their data with 13 query tools until it can name the cause."],
   ["Decide", "It records the diagnosis and hands the clinic to the right specialist: retention, leads or capacity."],
   ["Act", "The specialist reviews each patient or lead and drafts outreach for staff to approve."],
   ["Measure", "Patients are split at random first, so agent outreach is compared with a generic reminder and with nothing."],

@@ -229,7 +229,8 @@ def outcome_math(impact: list[dict], annual_dropouts: float, avg_visit_revenue: 
             row("More patients came back", pts(lift), f"{pct1(agent['return_rate'])} − {pct1(holdout['return_rate'])}")],
         "recovered": [
             row("Agent patients who came back", str(agent["patients_returned"])),
-            row("Visits left on their plans", num1(visits_left)),
+            row("Visits left on their plans", num1(visits_left),
+                f"the visits those {agent['patients_returned']} patients still had to go"),
             row("Visits we count", num1(counted),
                 f"{SHARE_OF_REMAINING_VISITS_KEPT:.0%} of {num1(visits_left)}: patients who come back don't all finish"),
             row("Recovered", usd(recovered), f"{num1(counted)} × {cents(avg_visit_revenue)} per visit")],

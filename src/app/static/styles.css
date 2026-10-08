@@ -292,7 +292,7 @@ blockquote.agent-voice { margin: 0; padding-left: 16px; border-left: 3px solid v
 .dx .agent-voice { font-size: 17px; margin: 0; }
 .dx .evidence { margin-top: 0; font-size: 15px; }
 .dx .handoff { margin-top: 0; }
-.dx p:last-child { margin-top: auto; font-size: 14px; }
+.dx > p:last-child { margin-top: auto; font-size: 14px; }
 
 /* Results */
 .metrics { display: flex; flex-wrap: wrap; gap: 44px; margin-bottom: 28px; }
@@ -368,6 +368,32 @@ blockquote.agent-voice { margin: 0; padding-left: 16px; border-left: 3px solid v
 .log li.note { display: block; border: 0; }
 .log .who { color: var(--slate); }
 .log li.write .what { color: var(--indigo); font-weight: 600; }
+
+/* How we got this: the math behind a number, closed until asked for. */
+details.math { margin-top: 10px; font-size: 14px; }
+details.math > summary { cursor: pointer; width: fit-content; color: var(--indigo); font-weight: 600; }
+details.math[open] > summary { margin-bottom: 6px; }
+.math-body { container-type: inline-size; max-width: 900px; padding: 2px 0 12px 16px; border-left: 2px solid var(--indigo-light); }
+.math-body h4 { font-size: 14px; font-weight: 700; margin: 18px 0 0; }
+.math-body h4:first-child { margin-top: 4px; }
+.math-body .note { max-width: 72ch; }
+.receipt { width: 100%; border-collapse: collapse; font-size: 13.5px; font-family: var(--sans); margin-top: 6px; table-layout: fixed; }
+.receipt th { width: 38%; }
+.receipt .num { width: 116px; }
+.receipt th, .receipt td { padding: 6px 0; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.receipt th { font-weight: 400; padding-right: 14px; }
+.receipt .num { text-align: right; white-space: nowrap; font-weight: 600; padding-right: 18px; }
+.receipt .how { color: var(--slate); }
+.receipt .result th, .receipt .result .num { font-weight: 700; }
+.receipt .result > * { border-top: 1.5px solid var(--ink); border-bottom: 0; }
+@container (max-width: 560px) {
+  .receipt tr { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .receipt tr.result { border-top: 1.5px solid var(--ink); border-bottom: 0; }
+  .receipt th, .receipt td, .receipt .result > * { width: auto; padding: 0; border: 0; }
+  .receipt .how { grid-column: 1 / -1; font-size: 12.5px; }
+}
+.meanings dt { font-weight: 600; margin-top: 8px; }
+.meanings dd { margin: 0; color: var(--slate); }
 
 @media (max-width: 900px) {
   .tabs { margin: 0 -20px 24px; padding: 0 20px; gap: 18px; overflow-x: auto; }
