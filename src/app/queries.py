@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from app import explain
+from app.facts import action_facts
 from app.steps import Narrator
 
 NETWORK = "NETWORK"     # location_id of the whole-network specialists' findings and moves
@@ -218,14 +219,16 @@ def clinic_story(wh: Any, fq: str, clinic_id: str, run_id: str | None = None) ->
         if not kpi_rows:
             raise KeyError(clinic_id)
         dx = dx_rows[0] if dx_rows else None
-        action_rows = []
+        action_rows, known = [], {}
         if dx:
+            facts_job = pool.submit(action_facts, wh, fq, dx["run_id"], clinic_id)
             action_rows = wh.query(f"""/* clinic_actions */
                 SELECT action_id, arm, target_type, target_id, intervention, channel, message, offered_slot,
                        rationale, status, signal, expected_value
                 FROM {fq}.action_queue WHERE run_id = :run_id AND location_id = :clinic_id
                   AND specialist <> 'loyalty'
                 ORDER BY expected_value DESC""", {"run_id": dx["run_id"], "clinic_id": clinic_id})
+            known = facts_job.result()
         impact_rows = impact_job.result()
 
     k = kpi_rows[0]
@@ -247,7 +250,8 @@ def clinic_story(wh: Any, fq: str, clinic_id: str, run_id: str | None = None) ->
         "run": None if not dx else {"run_id": dx["run_id"], "started_at": utc_iso(dx["started_at"]),
                                     "trigger": dx["trigger"], "status": dx["status"]},
         "diagnosis": None if not dx else {f: dx[f] for f in DIAGNOSIS_FIELDS},
-        "actions": [{f: r.get(f) for f in ACTION_FIELDS} for r in action_rows if r["arm"] == "agent"],
+        "actions": [{**{f: r.get(f) for f in ACTION_FIELDS}, "facts": known.get(r["action_id"], [])}
+                    for r in action_rows if r["arm"] == "agent"],
         "controls": controls,
         "impact": impact,
         "impact_run": impact_run,
@@ -274,7 +278,8 @@ def run_overview(wh: Any, fq: str, run_id: str | None = None) -> dict:
         return {"run": None, "diagnoses": [], "actions": [], "controls": {}, "impact": [], "impact_math": None}
     run = dict(runs[0], started_at=utc_iso(runs[0]["started_at"]))
     by_run = {"run_id": run["run_id"]}
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        facts_job = pool.submit(action_facts, wh, fq, run["run_id"])
         dx_job = pool.submit(wh.query, f"""/* run_diagnoses */
             SELECT k.*, d.location_id, d.problem_type, d.root_cause, d.evidence, d.recommended_fix,
                    d.specialist, d.revenue_at_stake
@@ -295,6 +300,7 @@ def run_overview(wh: Any, fq: str, run_id: str | None = None) -> dict:
                    annualized_network_revenue
             FROM {fq}.impact_summary WHERE run_id = :run_id""", by_run)
         dx_rows, action_rows, impact_rows = dx_job.result(), actions_job.result(), impact_job.result()
+        known = facts_job.result()
         inputs = (inputs_job.result() or [{}])[0]
     controls: dict[str, dict[str, int]] = {}
     for r in action_rows:
@@ -313,7 +319,8 @@ def run_overview(wh: Any, fq: str, run_id: str | None = None) -> dict:
         "run": run,
         "diagnoses": diagnoses,
         "actions": [{"location_id": r["location_id"], "city": _city(r), "specialist": r.get("specialist"),
-                     **{f: r.get(f) for f in ACTION_FIELDS}} for r in action_rows if r["arm"] == "agent"],
+                     **{f: r.get(f) for f in ACTION_FIELDS}, "facts": known.get(r["action_id"], [])}
+                    for r in action_rows if r["arm"] == "agent"],
         "controls": controls,
         "impact": impact,
         "impact_math": explain.outcome_math(impact, inputs.get("annual_dropouts") or 0.0,

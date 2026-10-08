@@ -63,8 +63,9 @@ Databricks App ◄─────────┘  (also runs the Manager live on
 - **App**: a small FastAPI server and one hand-written page (no build step) on Databricks Apps
   (`src/app/`). The 50 clinics are drawn as a spine. Five tabs: Overview (the Manager's summary,
   the path to $250M and a what-if planner whose sliders redraw it live), Clinics (every KPI for
-  all 50, sortable; each clinic opens as a four-step story), Problems, Messages (approve, edit or
-  skip every draft) and Results (agent vs plain reminder vs no message, with the outcome model's
+  all 50, sortable; each clinic opens as a four-step story), Problems, Outreach (approve, edit or
+  skip every draft; each message is written for one person from their own facts, and the facts it
+  used are shown beside it, worked out by SQL, not by the AI) and Results (agent vs plain reminder vs no message, with the outcome model's
   assumptions). All wording is written so a 10-year-old can follow it. "Run the Manager" runs the
   agent live on one clinic and shows each step as it happens. Every dollar figure has a "How we
   got this" breakdown: each step of the calculation with the real inputs, built by

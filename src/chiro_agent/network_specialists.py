@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 
-from chiro_agent.context import RunContext, action_row, now, queue_action_tool
+from chiro_agent.context import RunContext, action_row, now, personal_rules, queue_action_tool
 from chiro_agent.loop import run_agent
 from chiro_agent.tools import Tool
 
@@ -48,12 +48,15 @@ Steps:
      Corrective plan, many visits, older age bands, or a Package Plan they already like.
    - Referral ask: patients who already referred someone, or who finished a short plan quickly.
    - Wellness plan offer + referral ask: when both clearly fit.
-   Messages: warm, under 320 characters, start with "Hi there", no names, no medical claims,
-   no prices. A referral ask invites them to bring a friend or family member.
+   In each message use the patient's own facts: the plan they finished, how many visits they did and
+   whether they have referred anyone before. No prices. A referral ask invites them to bring a
+   friend or family member.
 3. Call record_network_finding once: what is going wrong, two or three facts with numbers (name the
    best clinic), and what every clinic should do when a care plan ends.
 4. Reply with one sentence summing up what you queued.
-{PLAIN_WORDS}"""
+{PLAIN_WORDS}
+
+{personal_rules("the patient's own clinic (clinic_name in their details)")}"""
 
 
 def money(x: float) -> str:
@@ -165,7 +168,8 @@ def loyalty_targets(ctx: RunContext, clinics: int = 2, per_clinic: int = 4):
     stats = ctx.uc_tools.fetch("get_loyalty_stats", {})
     clinic_rows = [r for r in stats if str(r["location_id"]).startswith("LOC")]
     behind = sorted(clinic_rows, key=lambda r: -(r["yearly_value"] or 0))[:clinics]
-    patients = [{**p, "location_id": c["location_id"], "city": c["city"]}
+    patients = [{**p, "location_id": c["location_id"], "city": c["city"],
+                 "clinic_name": ctx.clinic_name(c["location_id"])}
                 for c in behind
                 for p in ctx.uc_tools.fetch("find_recent_finishers",
                                             {"clinic_id": c["location_id"], "max_patients": per_clinic})]

@@ -16,6 +16,9 @@ class InsertOnly:
     def insert(self, table, rows, batch=None):
         self.rows.setdefault(table.split(".")[-1], []).extend(rows)
 
+    def query(self, sql, params=None):
+        return []
+
 
 def price(args):
     """Same rule as price_budget_shift in src/sql/tools.sql."""

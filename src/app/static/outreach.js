@@ -1,14 +1,14 @@
-// Outreach tab: every draft in the run in one table, filterable by clinic, with Approve and Skip on
+// Outreach tab: every draft in the run in one table, with what the agent knew about each person,, filterable by clinic, with Approve and Skip on
 // each row. Click a message to edit it; the edit is saved when the row is approved.
 import { decision, updateApproveAll, wireDecisions } from "./actions.js";
-import { esc, plural, runKind, slotLabel, when } from "./format.js";
+import { esc, factsHtml, plural, runKind, slotLabel, when } from "./format.js";
 
 const TARGETS = { lead: "Lead", patient: "Patient", channel: "Marketing budget" };
 
 export function renderOutreach(view, data, handlers) {
   const { run, actions, controls } = data;
   if (!run) {
-    view.innerHTML = '<section class="fade-in"><header class="tab-head"><h2>Messages</h2></header><p class="notice">No runs yet. Run the Manager to see its messages here.</p></section>';
+    view.innerHTML = '<section class="fade-in"><header class="tab-head"><h2>Outreach</h2></header><p class="notice">No runs yet. Run the Manager to see its messages here.</p></section>';
     return;
   }
   const clinics = [...new Map(actions.map((a) => [a.location_id, a.city ?? a.location_id]))];
@@ -19,7 +19,7 @@ export function renderOutreach(view, data, handlers) {
     `${esc(clinics.find(([c]) => c === id)?.[1] ?? id)}: ${arms.holdout ?? 0} get no message (the holdout group), ${arms.generic ?? 0} get a plain reminder`).join("; ");
   const rows = actions.map((a) => `<tr class="item" data-id="${esc(a.action_id)}" data-status="${esc(a.status)}" data-clinic="${esc(a.location_id)}">
       <td><b>${esc(a.city ?? a.location_id)}</b><span class="sub">${esc(a.specialist ?? "")}</span></td>
-      <td>${esc(a.target_id)}<span class="sub">${TARGETS[a.target_type] ?? "Patient"}</span></td>
+      <td class="who">${esc(a.target_id)}<span class="sub">${TARGETS[a.target_type] ?? "Patient"}</span>${factsHtml(a.facts)}</td>
       <td>${esc(a.intervention)}<span class="sub">${esc(a.channel ?? "")}</span></td>
       <td>${a.offered_slot ? esc(slotLabel(a.offered_slot)) : '<span class="sub">None</span>'}</td>
       <td class="msg"><p class="message" tabindex="0" title="Click to edit">${esc(a.message ?? "")}</p></td>
@@ -27,7 +27,7 @@ export function renderOutreach(view, data, handlers) {
       <td class="decision"><div class="decide">${decision(a.status)}</div><p class="card-error" role="alert" hidden></p></td>
     </tr>`).join("");
   view.innerHTML = `<section class="fade-in">
-    <header class="tab-head"><h2>Messages</h2><p class="source">From the ${runKind(run.trigger)} on ${esc(when(run.started_at))}. Nothing is sent until staff approve it.</p></header>
+    <header class="tab-head"><h2>Outreach</h2><p class="source">From the ${runKind(run.trigger)} on ${esc(when(run.started_at))}. Each message is written for one person from their own facts. Nothing is sent until staff approve it.</p></header>
     <div class="act-head">
       <div class="chips" role="group" aria-label="Show clinic">${chips}</div>
       <button type="button" class="quiet" id="approve-all" hidden></button>
