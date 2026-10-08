@@ -63,12 +63,13 @@ function plannerHtml(network) {
 function wirePlanner(view, network, scale) {
   const list = levers(network.inputs);
   const settings = defaults(network.inputs);
-  const draw = () => {
+  // The first draw leaves the bar alone, so its opening animation still plays.
+  const draw = (first = false) => {
     const p = plan(network.inputs, settings, network.revenue, network.clinic_count, network.goal);
     const amounts = { ...p.values, new_clinics: p.remainder };
     for (const [key, value] of Object.entries(amounts)) {
       const seg = view.querySelector(`.seg[data-key="${key}"]`);
-      if (seg) { seg.dataset.w = `${(value / scale) * 100}%`; seg.style.width = seg.dataset.w; }
+      if (seg && !first) { seg.dataset.w = `${(value / scale) * 100}%`; seg.style.width = seg.dataset.w; }
       const item = view.querySelector(`.bridge-legend li[data-key="${key}"] .amount`);
       if (item) item.textContent = `+${money(value)}`;
     }
@@ -92,5 +93,5 @@ function wirePlanner(view, network, scale) {
     view.querySelectorAll(".planner input[type=range]").forEach((input) => { input.value = settings[input.dataset.key]; });
     draw();
   });
-  draw();
+  draw(true);
 }

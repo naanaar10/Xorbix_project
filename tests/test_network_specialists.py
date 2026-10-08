@@ -28,6 +28,7 @@ def price(args):
 
 def make_ctx():
     registry = ToolRegistry()
+    registry.add(Tool("get_marketing_channels", "", {}, lambda args: []))
     registry.add(Tool("price_budget_shift", "", {}, lambda args: price(args) if args["to_channel"] in CHANNELS
                       and args["from_channel"] in CHANNELS else []))
     return RunContext(Settings("cat", "sch", "wh", "llm"), InsertOnly(), None, registry, "run-1")
@@ -139,3 +140,25 @@ def test_a_finding_can_carry_the_value_the_tools_worked_out():
     ctx = make_ctx()
     network_finding_tool(ctx, "loyalty", value=390_951.0).run({"root_cause": "x", "evidence": "y", "recommended_fix": "z"})
     assert ctx.wh.rows["clinic_diagnoses"][0]["revenue_at_stake"] == 390_951.0
+
+
+def test_network_specialists_are_reminded_until_they_record_their_finding(monkeypatch):
+    from chiro_agent import network_specialists as ns
+
+    seen = {}
+
+    def fake_run_agent(client, model, name, system, user, tools, **kwargs):
+        unfinished = kwargs["unfinished"]
+        seen[name] = [unfinished()]
+        tools.call("record_network_finding", {"root_cause": "x", "evidence": "y", "recommended_fix": "z"})
+        seen[name].append(unfinished())
+
+        class Result:
+            final_text = "Done."
+        return Result()
+
+    monkeypatch.setattr(ns, "run_agent", fake_run_agent)
+    ns.run_marketing(make_ctx())
+    ns.run_loyalty(loyalty_ctx())
+    for name in ("marketing:NETWORK", "loyalty:NETWORK"):
+        assert "record_network_finding" in seen[name][0] and seen[name][1] is None

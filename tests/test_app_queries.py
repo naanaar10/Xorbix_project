@@ -88,6 +88,8 @@ def test_clinic_story_with_a_diagnosis():
     assert [a["arm"] for a in story["impact"]] == ["agent", "generic", "holdout"]
     assert story["impact_run"]["same_as_story"] is True and story["impact_run"]["agent_patients"] == 30
     assert wh.called("clinic_actions")[0]["params"] == {"run_id": "r1", "clinic_id": "LOC007"}
+    # Wellness and referral messages from the whole-network loyalty agent aren't part of this story.
+    assert "specialist <> 'loyalty'" in wh.called("clinic_actions")[0]["sql"]
 
 
 def test_a_run_too_small_to_measure_shows_the_latest_big_measurement():

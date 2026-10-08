@@ -125,11 +125,17 @@ class Narrator:
                             "write": True, "phase": "decide"})
         if name == "assign_specialist":
             clinic = args.get("location_id") or (step.get("arguments") or "").strip()
+            failed = (step.get("result_preview") or "").startswith("Failed:")
             done = next((k for k in reversed(self._open)
                          if k[0] == clinic and args.get("specialist") in (None, k[1])), None)
             if done:
                 self._open.remove(done)
-                return out + [{"agent": "Director", "text": f"The {done[1]} specialist finished with {_place(done[0])}",
-                               "write": False, "phase": None}]
+                text = (f"The {done[1]} specialist stopped with an error on {_place(done[0])}" if failed
+                        else f"The {done[1]} specialist finished with {_place(done[0])}")
+                return out + [{"agent": "Director", "text": text, "write": False, "phase": None}]
+            if clinic == NETWORK:  # handed over by code, but it never got to a first step
+                text = f"Handed the whole network to the {args.get('specialist')} specialist"
+                return out + [{"agent": "Director", "text": text + (" (it stopped with an error)" if failed else ""),
+                               "write": not failed, "phase": "decide"}]
         view = step_view(step)
         return out + [view] if view else out

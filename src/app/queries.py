@@ -224,6 +224,7 @@ def clinic_story(wh: Any, fq: str, clinic_id: str, run_id: str | None = None) ->
                 SELECT action_id, arm, target_type, target_id, intervention, channel, message, offered_slot,
                        rationale, status, signal, expected_value
                 FROM {fq}.action_queue WHERE run_id = :run_id AND location_id = :clinic_id
+                  AND specialist <> 'loyalty'
                 ORDER BY expected_value DESC""", {"run_id": dx["run_id"], "clinic_id": clinic_id})
         impact_rows = impact_job.result()
 

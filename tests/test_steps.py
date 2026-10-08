@@ -102,3 +102,13 @@ def test_the_whole_network_is_handed_to_the_marketing_specialist():
         ("Marketing", "Wrote down what's wrong across the network", True),
         ("Director", "The marketing specialist finished with the whole network", False)]
     assert phase_of("queue_budget_shift") == "act" and phase_of("record_network_finding") == "decide"
+
+
+def test_a_network_specialist_that_failed_says_so():
+    failed = {"agent": "director", "kind": "auto", "name": "assign_specialist",
+              "arguments": '{"location_id": "NETWORK", "specialist": "loyalty"}',
+              "result_preview": "Failed: RuntimeError: endpoint timed out"}
+    assert lines([failed]) == [("Director", "Handed the whole network to the loyalty specialist (it stopped with an error)", False)]
+    started = {"agent": "loyalty:NETWORK", "name": "get_loyalty_stats", "arguments": "{}", "result_preview": "[]"}
+    assert lines([started, failed])[-1] == (
+        "Director", "The loyalty specialist stopped with an error on the whole network", False)

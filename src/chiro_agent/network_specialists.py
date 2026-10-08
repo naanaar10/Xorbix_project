@@ -116,7 +116,12 @@ def budget_shift_tool(ctx: RunContext) -> Tool:
         run=run)
 
 
-def network_finding_tool(ctx: RunContext, problem_type: str, value: float | None = None) -> Tool:
+FINDING_REMINDER = ("You have not called record_network_finding yet. Call it once now with what is going wrong, "
+                    "two or three facts and what to do. Then reply with one short sentence.")
+
+
+def network_finding_tool(ctx: RunContext, problem_type: str, value: float | None = None,
+                         recorded: list | None = None) -> Tool:
     """Save what a network specialist found. It is worth `value` a year when a tool worked that out,
     otherwise the yearly value of everything the specialist queued."""
 
@@ -128,6 +133,8 @@ def network_finding_tool(ctx: RunContext, problem_type: str, value: float | None
             "root_cause": (args.get("root_cause") or "")[:1000], "evidence": (args.get("evidence") or "")[:2000],
             "revenue_at_stake": round(float(worth), 2), "specialist": problem_type,
             "recommended_fix": (args.get("recommended_fix") or "")[:1000], "created_at": now()}])
+        if recorded is not None:
+            recorded.append(problem_type)
         return {"recorded": NETWORK}
 
     return Tool(
@@ -144,9 +151,11 @@ def network_finding_tool(ctx: RunContext, problem_type: str, value: float | None
 def run_marketing(ctx: RunContext) -> dict:
     tools = ctx.uc_tools.subset(["get_marketing_channels", "price_budget_shift"])
     tools.add(budget_shift_tool(ctx))
-    tools.add(network_finding_tool(ctx, "marketing"))
+    recorded: list = []
+    tools.add(network_finding_tool(ctx, "marketing", recorded=recorded))
     result = run_agent(ctx.client, ctx.settings.llm_endpoint, f"marketing:{NETWORK}", MARKETING_SYSTEM,
-                       "Review the network's marketing budget now.", tools, max_steps=12, on_step=ctx.add_step)
+                       "Review the network's marketing budget now.", tools, max_steps=14, on_step=ctx.add_step,
+                       unfinished=lambda: None if recorded else FINDING_REMINDER)
     return {"specialist": "marketing", "summary": result.final_text[:500]}
 
 
@@ -172,11 +181,13 @@ def run_loyalty(ctx: RunContext) -> dict:
                               value_of=lambda info: 0.0)
     tools = ctx.uc_tools.subset(["get_loyalty_stats"])
     tools.add(queue)
-    tools.add(network_finding_tool(ctx, "loyalty", value=value))
+    recorded: list = []
+    tools.add(network_finding_tool(ctx, "loyalty", value=value, recorded=recorded))
     user = ("Clinics furthest behind: " + ", ".join(f"{c['city']} ({c['location_id']})" for c in behind)
             + "\nPatients who just finished a care plan there:\n" + json.dumps(patients, default=str))
     result = run_agent(ctx.client, ctx.settings.llm_endpoint, f"loyalty:{NETWORK}", LOYALTY_SYSTEM, user, tools,
-                       max_steps=len(patients) + 6, on_step=ctx.add_step)
+                       max_steps=len(patients) + 8, on_step=ctx.add_step,
+                       unfinished=lambda: None if recorded else FINDING_REMINDER)
     return {"specialist": "loyalty", "summary": result.final_text[:500]}
 
 

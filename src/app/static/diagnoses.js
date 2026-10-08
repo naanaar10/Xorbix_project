@@ -3,12 +3,19 @@
 import { agentHtml, esc, leverProblem, money, runKind, when } from "./format.js";
 import { clinicMath, howWeGot } from "./math.js";
 
+// What the money on a whole-network card counts.
+const GAIN = {
+  marketing: "That's what the budget moves it queued would add. The path to $250M on the Overview uses one standard move.",
+  loyalty: "That's if every clinic did as well as the best 10% of clinics.",
+};
+
 export function renderDiagnoses(view, data, onOpen) {
   const { run, diagnoses } = data;
   const cards = diagnoses.map((d) => `<article class="dx">
       <header>
         <h3>${esc(d.city ?? d.location_id)}${d.location_id === "NETWORK" ? "" : ` <span class="id">${esc(d.location_id)}</span>`}</h3>
         <p class="stake">${money(d.at_stake ?? d.revenue_at_stake)} ${d.location_id === "NETWORK" ? "more" : "lost"} each year: ${esc(leverProblem(d.problem_type))}</p>
+        ${d.location_id === "NETWORK" && GAIN[d.problem_type] ? `<p class="note">${GAIN[d.problem_type]}</p>` : ""}
         ${d.math ? howWeGot(`How we got ${d.math.total.value}`, clinicMath(d.math)) : ""}
       </header>
       <blockquote class="agent-voice">${agentHtml(d.root_cause)}</blockquote>
