@@ -24,7 +24,7 @@ def test_network_and_page():
     body = client.get("/api/network").json()
     assert body["flagged_count"] == 1 and body["clinics"][0]["id"] == "LOC007"
     page = client.get("/")
-    assert page.status_code == 200 and "<title>Growth Director</title>" in page.text
+    assert page.status_code == 200 and "<title>Backbone</title>" in page.text
 
 
 def test_unknown_clinic_is_404_with_an_error_message():

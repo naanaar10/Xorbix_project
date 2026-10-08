@@ -1,4 +1,4 @@
-"""Reason, Decide, Act: the Growth Director investigates the clinics with the most revenue at
+"""Reason, Decide, Act: the Manager agent investigates the clinics with the most revenue at
 stake and dispatches specialist agents, which queue actions for staff approval."""
 import argparse
 import json

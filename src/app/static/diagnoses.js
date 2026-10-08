@@ -27,7 +27,7 @@ export function renderDiagnoses(view, data, onOpen) {
       ${d.location_id === "NETWORK" ? '<p class="note">Its moves are in Messages.</p>' : `<p><button type="button" class="link" data-open="${esc(d.location_id)}">Open ${esc(d.city ?? d.location_id)}</button></p>`}
     </article>`).join("");
   const body = !run
-    ? '<p class="notice">No runs yet. Run the Director to see the problems it finds here.</p>'
+    ? '<p class="notice">No runs yet. Run the Manager to see the problems it finds here.</p>'
     : diagnoses.length ? `<div class="dx-grid">${cards}</div>` : "<p class='notice'>This run didn't write down any problems.</p>";
   view.innerHTML = `<section class="fade-in">
     <header class="tab-head"><h2>Problems found</h2>${run ? `<p class="source">From the ${runKind(run.trigger)} on ${esc(when(run.started_at))}. The agent checked each clinic's data, then wrote down what's wrong. Every number comes from the data, not from guessing.</p>` : ""}</header>

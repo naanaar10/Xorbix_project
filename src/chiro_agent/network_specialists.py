@@ -1,5 +1,5 @@
 """Specialists that work on the whole network rather than one clinic: marketing (where the budget
-goes) and loyalty (patients who just finished a care plan). The Director hands the network to them
+goes) and loyalty (patients who just finished a care plan). The Manager hands the network to them
 after its clinic reviews. As everywhere, tools compute the numbers; the agent decides and writes."""
 from __future__ import annotations
 

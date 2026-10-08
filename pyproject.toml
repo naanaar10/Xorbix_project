@@ -1,7 +1,7 @@
 [project]
 name = "chiro-growth-agent"
 version = "0.1.0"
-description = "Growth Director: an agentic AI prototype for a chiropractic clinic network on Databricks."
+description = "Backbone: an agentic AI prototype for a chiropractic clinic network on Databricks."
 requires-python = ">=3.11"
 dependencies = []
 

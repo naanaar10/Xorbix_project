@@ -79,13 +79,13 @@ function didItWork({ lever, actions, impact, impact_run: measured, impact_math: 
 
 function notInvestigated({ clinic }, pinnedRun) {
   const text = pinnedRun
-    ? `The run you picked didn't investigate ${clinic.city}. Pick another run in How it works, or run the Director now.`
-    : `The Director hasn't investigated ${clinic.city} yet. Run it to find out what's behind these numbers.`;
+    ? `The run you picked didn't investigate ${clinic.city}. Pick another run in How it works, or run the Manager now.`
+    : `The Manager hasn't investigated ${clinic.city} yet. Run it to find out what's behind these numbers.`;
   return `<li class="step"><h3><span class="n">2</span>Why</h3><p>${esc(text)}</p></li>`;
 }
 
 function runRow({ clinic, lever }, running) {
-  const label = `Run the Director on ${clinic.city}`;
+  const label = `Run the Manager on ${clinic.city}`;
   const patients = lever === "retention"
     ? `<label>Patients to review <select id="patients">${PATIENT_CHOICES.map((n) => `<option${n === 4 ? " selected" : ""}>${n}</option>`).join("")}</select></label>`
     : "";

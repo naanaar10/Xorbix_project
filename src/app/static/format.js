@@ -67,7 +67,7 @@ export function slotLabel(slot) {
   return `${day}, ${+h % 12 || 12}:${mi} ${+h < 12 ? "AM" : "PM"}${rest}`;
 }
 
-// The Director sometimes writes Markdown. Everything is escaped first; then only **bold** and
+// The Manager sometimes writes Markdown. Everything is escaped first; then only **bold** and
 // "- " bullets become markup. A line that is only bold text is a heading and is dropped.
 export function agentHtml(text) {
   const out = [];

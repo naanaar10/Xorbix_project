@@ -1,4 +1,4 @@
-# Chiro Growth Director: Databricks Asset Bundle.
+# Backbone: Databricks Asset Bundle.
 # Workspace-specific values live in variables or in your CLI profile, never in code.
 bundle:
   name: chiro-growth-agent
@@ -21,7 +21,7 @@ variables:
     description: Foundation Model serving endpoint the agents call.
     default: databricks-gpt-oss-120b
   clinics_per_run:
-    description: How many clinics the Growth Director investigates per run.
+    description: How many clinics the Manager agent investigates per run.
     default: 3
   max_agent_patients:
     description: At-risk patients per clinic that get an individual agent review.

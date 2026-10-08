@@ -1,4 +1,4 @@
-"""Specialist agents. The Director assigns one per diagnosed clinic.
+"""Specialist agents. The Manager assigns one per diagnosed clinic.
 
 Retention is the deep specialist: at-risk patients are randomized into holdout / generic reminder /
 agent arms before any LLM sees them, and every agent-arm patient gets an individual review.
@@ -19,7 +19,7 @@ GENERIC_REMINDER = ("Hi there, we noticed it's been a while since your last visi
 HOLDOUT_SHARE, GENERIC_SHARE = 0.20, 0.20
 
 RETENTION_SYSTEM = """You are the Retention Specialist for clinic {clinic}.
-Director's brief: {brief}
+Manager's brief: {brief}
 
 A patient on an active care plan has gone quiet: overdue for their next visit with nothing booked.
 Choose the ONE outreach most likely to bring them back, based on why they probably stopped:
@@ -31,7 +31,7 @@ Choose the ONE outreach most likely to bring them back, based on why they probab
   Best for patients who stopped after early visits because they feel better.
 - Transport or telehealth option: ride credit or telehealth check-in. Best for transportation issues.
 
-The Director's brief describes the clinic as a whole. Each patient can have a different reason,
+The Manager's brief describes the clinic as a whole. Each patient can have a different reason,
 so decide from THIS patient's own signals, and do not default to the clinic-wide answer:
 - last_cancellation_reason, when present, is the strongest signal.
 - No cancellation reason, but their chiropractor does not work afternoons
@@ -49,7 +49,7 @@ and no medical claims. The rationale is one short sentence a 10-year-old could f
 the signals you used (no column names)."""
 
 LEADS_SYSTEM = """You are the Leads Specialist for clinic {clinic}.
-Director's brief: {brief}
+Manager's brief: {brief}
 
 Open leads are going cold because first responses are slow. Call get_stale_leads, then queue a
 follow-up for up to {n} of them with queue_action, newest first:
@@ -60,7 +60,7 @@ Messages: warm, under 320 characters, start with "Hi there", no names, no medica
 Finish with one sentence recommending the process change that would stop leads going cold."""
 
 CAPACITY_SYSTEM = """You are the Capacity Specialist for clinic {clinic}.
-Director's brief: {brief}
+Manager's brief: {brief}
 
 The clinic has empty capacity. Use get_capacity_by_daypart and find_open_slots to see where, then
 find_reactivation_candidates to find lapsed loyal patients, and queue up to {n} actions with

@@ -8,7 +8,7 @@ const TARGETS = { lead: "Lead", patient: "Patient", channel: "Marketing budget" 
 export function renderOutreach(view, data, handlers) {
   const { run, actions, controls } = data;
   if (!run) {
-    view.innerHTML = '<section class="fade-in"><header class="tab-head"><h2>Messages</h2></header><p class="notice">No runs yet. Run the Director to see its messages here.</p></section>';
+    view.innerHTML = '<section class="fade-in"><header class="tab-head"><h2>Messages</h2></header><p class="notice">No runs yet. Run the Manager to see its messages here.</p></section>';
     return;
   }
   const clinics = [...new Map(actions.map((a) => [a.location_id, a.city ?? a.location_id]))];

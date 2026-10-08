@@ -18,7 +18,7 @@ export function renderResults(view, data, assumptions) {
   const agent = impact.find((a) => a.arm === "agent");
   let body;
   if (!run) {
-    body = '<p class="notice">No runs yet. Run the Director to see results here.</p>';
+    body = '<p class="notice">No runs yet. Run the Manager to see results here.</p>';
   } else if (!agent) {
     body = '<p class="notice">This run had no patient messages to measure. Pick another run in How it works.</p>';
   } else {

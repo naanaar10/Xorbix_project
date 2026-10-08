@@ -4,13 +4,13 @@ CREATE TABLE IF NOT EXISTS {fq}.agent_runs (
   run_id STRING, started_at TIMESTAMP, finished_at TIMESTAMP, model STRING, trigger STRING,
   clinics_investigated INT, actions_queued INT, mlflow_experiment_id STRING, mlflow_trace_id STRING,
   status STRING, summary STRING)
-COMMENT 'One row per Growth Director run.';
+COMMENT 'One row per Backbone run.';
 
 -- @@
 CREATE TABLE IF NOT EXISTS {fq}.clinic_diagnoses (
   run_id STRING, location_id STRING, problem_type STRING, root_cause STRING, evidence STRING,
   revenue_at_stake DOUBLE, specialist STRING, recommended_fix STRING, created_at TIMESTAMP)
-COMMENT 'Reason + Decide: the Director''s root-cause diagnosis per clinic and the specialist it assigned.';
+COMMENT 'Reason + Decide: the Manager''s root-cause diagnosis per clinic and the specialist it assigned.';
 
 -- @@
 CREATE TABLE IF NOT EXISTS {fq}.action_queue (

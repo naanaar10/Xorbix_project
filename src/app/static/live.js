@@ -1,4 +1,4 @@
-// The live run panel: a five-step strip that lights up as the Director works, and each step in
+// The live run panel: a five-step strip that lights up as the Manager works, and each step in
 // plain English as it happens. It long-polls the server, which works behind the Apps proxy.
 import { get, post } from "./api.js";
 import { duration, esc, plural } from "./format.js";
@@ -7,7 +7,7 @@ const PHASES = [["observe", "Observe"], ["reason", "Reason"], ["decide", "Decide
 const RETRY_MS = 2000;
 
 export async function startRun(panel, clinic, patients, options) {
-  open(panel, `Starting the Director on ${options.cityOf(clinic)}`);
+  open(panel, `Starting the Manager on ${options.cityOf(clinic)}`);
   try {
     const { run_id: runId } = await post("/api/runs", { clinic, patients });
     follow(panel, runId, clinic, options);
@@ -18,7 +18,7 @@ export async function startRun(panel, clinic, patients, options) {
 }
 
 export function follow(panel, runId, clinic, options) {
-  open(panel, `The Director is investigating ${options.cityOf(clinic)}`);
+  open(panel, `The Manager is investigating ${options.cityOf(clinic)}`);
   options.onStart?.(runId);
   const started = Date.now();
   const elapsed = panel.querySelector(".elapsed");
@@ -45,7 +45,7 @@ export function follow(panel, runId, clinic, options) {
   const done = (event) => {
     clearInterval(timer);
     panel.querySelectorAll(".segment").forEach((s) => { s.classList.remove("active"); s.classList.add("done"); });
-    const limit = event.status === "SUCCEEDED" ? "" : " The Director stopped at its step limit.";
+    const limit = event.status === "SUCCEEDED" ? "" : " The Manager stopped at its step limit.";
     const summary = `Done in ${duration(event.seconds)}. ${plural(event.drafts, "message")} written for ${options.cityOf(event.clinic)}.${limit}`;
     setTimeout(() => collapse(panel, summary), 1200); // let the last segment be seen filling
     options.onDone(event);

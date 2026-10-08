@@ -1,4 +1,4 @@
-"""The Growth Director: finds where the network is losing the most revenue, works out why,
+"""The Manager agent: finds where the network is losing the most revenue, works out why,
 and assigns the right specialist to act on it."""
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from chiro_agent.network_specialists import NETWORK, NETWORK_SPECIALISTS
 from chiro_agent.specialists import SPECIALISTS
 from chiro_agent.tools import Tool
 
-DIRECTOR_SYSTEM = """You are the Growth Director for a network of 50 chiropractic clinics doing about
+DIRECTOR_SYSTEM = """You are the Manager agent of Backbone, for a network of 50 chiropractic clinics doing about
 $100M a year. The goal is $250M. Every run you find where revenue is leaking, prove why, and send
 the right specialist to fix it.
 
@@ -126,11 +126,11 @@ def run_growth_director(ctx: RunContext, clinics_per_run: int = 3, only_clinic: 
     if only_clinic:
         start = (f"Investigate clinic {only_clinic} only. Call get_network_kpis to see the network "
                  f"median and this clinic's revenue at stake.")
-        task = f"Run the Growth Director for clinic {only_clinic}."
+        task = f"Run the Manager review for clinic {only_clinic}."
     else:
         start = (f"Call get_network_kpis and pick the {clinics_per_run} clinics with the most revenue "
                  f"at stake.")
-        task = f"Run tonight's Growth Director review of the network ({clinics_per_run} clinics)."
+        task = f"Run tonight's Backbone review of the network ({clinics_per_run} clinics)."
 
     @mlflow.trace(name="growth_director_run", span_type="CHAIN")
     def traced(task_text: str) -> dict:
@@ -154,7 +154,7 @@ def run_growth_director(ctx: RunContext, clinics_per_run: int = 3, only_clinic: 
             tools.call("assign_specialist", {"location_id": clinic, "specialist": d["problem_type"],
                                              "brief": d["recommended_fix"]})
             ctx.add_step({"agent": "director", "kind": "auto", "name": "assign_specialist",
-                          "arguments": clinic, "result_preview": "Assigned by code after the Director stopped."})
+                          "arguments": clinic, "result_preview": "Assigned by code after the Manager stopped."})
         summary = result.final_text
         if not only_clinic:  # a live run on one clinic stays short
             summary += run_network_specialists(ctx)

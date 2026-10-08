@@ -56,8 +56,13 @@ def phase_of(name: str) -> str | None:
     return _PHASE_OF.get(name)
 
 
+# Agents are stored by their code name; people see the name the app uses.
+SHOWN_AS = {"director": "Manager"}
+
+
 def who(agent: str) -> str:
-    return agent.split(":")[0].capitalize()
+    name = agent.split(":")[0]
+    return SHOWN_AS.get(name, name.capitalize())
 
 
 def _arguments(text: str | None) -> dict:
@@ -121,7 +126,7 @@ class Narrator:
             if clinic and (clinic, specialist) not in self._handed:
                 self._handed.add((clinic, specialist))
                 self._open.append((clinic, specialist))
-                out.append({"agent": "Director", "text": f"Handed {_place(clinic)} to the {specialist} specialist",
+                out.append({"agent": "Manager", "text": f"Handed {_place(clinic)} to the {specialist} specialist",
                             "write": True, "phase": "decide"})
         if name == "assign_specialist":
             clinic = args.get("location_id") or (step.get("arguments") or "").strip()
@@ -132,10 +137,10 @@ class Narrator:
                 self._open.remove(done)
                 text = (f"The {done[1]} specialist stopped with an error on {_place(done[0])}" if failed
                         else f"The {done[1]} specialist finished with {_place(done[0])}")
-                return out + [{"agent": "Director", "text": text, "write": False, "phase": None}]
+                return out + [{"agent": "Manager", "text": text, "write": False, "phase": None}]
             if clinic == NETWORK:  # handed over by code, but it never got to a first step
                 text = f"Handed the whole network to the {args.get('specialist')} specialist"
-                return out + [{"agent": "Director", "text": text + (" (it stopped with an error)" if failed else ""),
+                return out + [{"agent": "Manager", "text": text + (" (it stopped with an error)" if failed else ""),
                                "write": not failed, "phase": "decide"}]
         view = step_view(step)
         return out + [view] if view else out

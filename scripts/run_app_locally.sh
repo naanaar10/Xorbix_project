@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run the Growth Director app on this machine against a deployed bundle target (default: dev).
+# Run the Backbone app on this machine against a deployed bundle target (default: dev).
 # Names and ids come from `databricks bundle summary`, and it uses your Databricks CLI login.
 # Open http://localhost:8000 once uvicorn says it is running.
 set -euo pipefail

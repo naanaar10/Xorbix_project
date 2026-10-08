@@ -18,7 +18,7 @@ resources:
             environment_version: "4"
 
     growth_director:
-      name: chiro-growth-director
+      name: backbone-nightly
       description: Nightly agent loop - observe the network, diagnose and act through specialist agents, measure outcomes.
       schedule:
         quartz_cron_expression: "0 0 6 * * ?"

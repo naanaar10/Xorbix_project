@@ -1,4 +1,4 @@
-"""Live Director runs started from the app. Each run gets a background thread and an ordered event
+"""Live Manager runs started from the app. Each run gets a background thread and an ordered event
 log that the page long-polls. One run at a time, so two presenters can't start two at once."""
 from __future__ import annotations
 
@@ -113,7 +113,7 @@ class LiveRuns:
             log = RunLog(self._new_id(), clinic, patients)
             self._logs[log.run_id] = log
             self._active = log
-        # A hung run would keep the slot forever; stopping it frees Run the Director again.
+        # A hung run would keep the slot forever; stopping it frees Run the Manager again.
         watchdog = threading.Timer(self._max_seconds, log.fail,
                                    args=(f"The run was stopped after {self._max_seconds:g} seconds without finishing.",))
         watchdog.daemon = True
@@ -122,7 +122,7 @@ class LiveRuns:
         return log
 
     def _run(self, log: RunLog, watchdog: threading.Timer) -> None:
-        log.phase("observe")  # the KPI snapshot already exists; the Director starts by reading it
+        log.phase("observe")  # the KPI snapshot already exists; the Manager starts by reading it
         try:
             log.finish(self._runner(log.clinic, log.patients, log.run_id, log))
         except Exception as e:  # noqa: BLE001 - shown in the live panel
@@ -139,7 +139,7 @@ class LiveRuns:
 
 
 def director_runner(settings, w) -> Runner:
-    """The real runner: the Growth Director on one clinic, then the outcome simulation."""
+    """The real runner: the Manager agent on one clinic, then the outcome simulation."""
 
     def run(clinic: str, patients: int, run_id: str, log: RunLog) -> dict:
         import mlflow

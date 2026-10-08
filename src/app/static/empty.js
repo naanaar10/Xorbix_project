@@ -33,12 +33,12 @@ export function renderEmpty(view, network, onPick) {
   countAll(view, money);
 }
 
-// The Director's own summary of a run, filled in when the run has loaded.
+// The Manager's own summary of a run, filled in when the run has loaded.
 export function renderSummary(el, run) {
   if (!el || !run?.summary) return;
   el.innerHTML = `<figure class="summary fade-in">
     <div class="agent-voice">${agentHtml(run.summary)}</div>
-    <figcaption>The Director's summary of the ${runKind(run.trigger)} on ${esc(when(run.started_at))}</figcaption>
+    <figcaption>The Manager's summary of the ${runKind(run.trigger)} on ${esc(when(run.started_at))}</figcaption>
   </figure>`;
 }
 

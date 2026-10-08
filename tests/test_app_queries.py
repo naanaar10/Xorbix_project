@@ -175,7 +175,7 @@ def test_recent_runs_and_steps():
         "run_steps": [{"agent": "director", "name": "get_network_kpis", "arguments": "{}", "result_preview": "[]"},
                       {"agent": "retention:PT1", "name": "final", "arguments": "", "result_preview": "done"}]})
     assert queries.recent_runs(wh, FQ)[0]["started_at"] == "2026-10-07T15:38:08Z"
-    assert queries.run_steps(wh, FQ, "r1") == [{"agent": "Director", "text": "Read every clinic's numbers and the money each one loses",
+    assert queries.run_steps(wh, FQ, "r1") == [{"agent": "Manager", "text": "Read every clinic's numbers and the money each one loses",
                                               "write": False, "phase": "reason"}]
 
 
