@@ -123,7 +123,7 @@ function show(tab, clinic) {
     const token = ++state.showing;
     view.classList.remove("loading");
     renderEmpty(view, state.network, openClinic);
-    loadRun().then((data) => { if (token === state.showing) renderSummary(view.querySelector("#summary"), data.run); })
+    loadRun().then((data) => { if (token === state.showing) renderSummary(view.querySelector("#summary"), data, openClinic); })
       .catch(() => {});
   }
 }
