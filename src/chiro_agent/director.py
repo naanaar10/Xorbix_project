@@ -28,7 +28,18 @@ How to work:
 4. Call assign_specialist for that clinic with a short brief for the specialist.
 Only use numbers that tools returned. Never invent data. When you compare a clinic, compare it with
 the network's overall figure (the median or "all" row), not with a narrower slice. When every picked clinic is done, reply
-with a three-sentence summary for the executive team."""
+with a three-sentence summary for the executive team.
+
+Clinic managers read everything you write, so write it for them, not for an analyst:
+- Plain English and short sentences. Never use tool or column names, or anything with an underscore.
+- Percentages and whole numbers, never decimals: "41% of afternoon slots are booked", not "0.41".
+- Compare with the typical clinic: "leads wait 37 hours for a first reply; the typical clinic
+  replies in 3".
+- Introduce a chiropractor as "one chiropractor (PRV0041)", never by the ID alone.
+- root_cause: one sentence saying what is going wrong and why.
+- evidence: two or three short facts, each with this clinic's figure and the typical clinic's,
+  separated by semicolons.
+- recommended_fix: one or two sentences saying what clinic staff should do."""
 
 
 def _director_tools(ctx: RunContext):
@@ -67,10 +78,10 @@ def _director_tools(ctx: RunContext):
                     "properties": {
                         "location_id": {"type": "string"},
                         "problem_type": {"type": "string", "enum": list(SPECIALISTS)},
-                        "root_cause": {"type": "string", "description": "Specific one-sentence cause"},
-                        "evidence": {"type": "string", "description": "Numbers from tool results that prove it"},
+                        "root_cause": {"type": "string", "description": "One plain-English sentence: what is going wrong and why"},
+                        "evidence": {"type": "string", "description": "Two or three short facts from tool results, in percentages, each compared with the typical clinic"},
                         "revenue_at_stake": {"type": "number", "description": "Annual $ at stake from get_network_kpis"},
-                        "recommended_fix": {"type": "string"}}},
+                        "recommended_fix": {"type": "string", "description": "What clinic staff should do, in one or two sentences"}}},
                    record_diagnosis))
     tools.add(Tool("assign_specialist",
                    "Hand a diagnosed clinic to a specialist agent, which reviews patients or leads and queues actions. Returns what it did.",

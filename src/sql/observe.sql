@@ -93,7 +93,14 @@ unit_value AS (
          (SELECT AVG(CASE WHEN completed_a_plan = 1 THEN revenue END)
                  - AVG(CASE WHEN dropped_a_plan = 1 AND completed_a_plan = 0 THEN revenue END)
           FROM patient_value) AS value_of_a_completion,
-         (SELECT SUM(revenue) / COUNT(DISTINCT patient_id) FROM {fq}.visits) AS revenue_per_patient),
+         (SELECT SUM(revenue) / COUNT(DISTINCT patient_id) FROM {fq}.visits) AS revenue_per_patient,
+         -- The inputs behind those values, so the app can show its math.
+         (SELECT SUM(revenue) FROM {fq}.visits) AS all_visit_revenue,
+         (SELECT COUNT(*) FROM {fq}.visits) AS all_visits,
+         (SELECT COUNT(DISTINCT patient_id) FROM {fq}.visits) AS all_patients,
+         (SELECT AVG(CASE WHEN completed_a_plan = 1 THEN revenue END) FROM patient_value) AS completer_revenue,
+         (SELECT AVG(CASE WHEN dropped_a_plan = 1 AND completed_a_plan = 0 THEN revenue END)
+          FROM patient_value) AS dropper_revenue),
 priced AS (
   SELECT b.*, m.*, v.*,
          -- Gaps inside a tolerance band are normal clinic-to-clinic variation and price at $0.
