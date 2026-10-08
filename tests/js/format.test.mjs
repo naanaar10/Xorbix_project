@@ -57,7 +57,7 @@ test("every problem the agents can find has plain words", () => {
 
 test("factsHtml lists what the agent knew about the person, escaped, and nothing when there are no facts", () => {
   assert.equal(factsHtml(["3 of 24 visits done", "Found us: <Website>"]),
-    '<ul class="facts" aria-label="What we know about them"><li>3 of 24 visits done</li><li>Found us: &lt;Website&gt;</li></ul>');
+    '<ul class="known" aria-label="What we know about them"><li>3 of 24 visits done</li><li>Found us: &lt;Website&gt;</li></ul>');
   assert.equal(factsHtml([]), "");
   assert.equal(factsHtml(undefined), "");
 });
