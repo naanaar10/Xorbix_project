@@ -31,7 +31,7 @@ export function renderClinics(view, network, onOpen) {
     const diff = (a[sort.key] ?? 0) - (b[sort.key] ?? 0);
     return sort.descending ? -diff : diff;
   });
-  const median = `<tr class="median-row"><th scope="row">Network median</th><td></td>${COLUMNS.map(([key, , format]) =>
+  const median = `<tr class="median-row"><th scope="row">Typical clinic <span class="id">median</span></th><td></td>${COLUMNS.map(([key, , format]) =>
     `<td class="num">${network.medians[key] == null ? "" : format(network.medians[key])}</td>`).join("")}</tr>`;
   const rows = clinics.map((c) => `<tr class="row${c.flagged ? " flagged" : ""}" data-id="${esc(c.id)}" tabindex="0">
       <th scope="row"><b>${esc(c.city)}</b> <span class="id">${esc(c.id)}</span></th>
@@ -44,6 +44,7 @@ export function renderClinics(view, network, onOpen) {
       <thead><tr><th scope="col">Clinic</th><th scope="col">Problem</th>${header}</tr></thead>
       <tbody>${median}${rows}</tbody>
     </table></div>
+    <p class="note">At stake: revenue a clinic loses a year where it trails the typical clinic by more than normal variation. Open a clinic to see how its figure was worked out.</p>
   </section>`;
   view.querySelectorAll(".sort").forEach((button) => button.addEventListener("click", () => {
     const [key, , , better] = COLUMNS.find(([k]) => k === button.dataset.key);

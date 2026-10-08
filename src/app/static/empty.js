@@ -1,5 +1,6 @@
 // The overview when no clinic is picked: the headline, the path to $250M, and where to start.
 import { agentHtml, esc, leverProblem, money, runKind, when } from "./format.js";
+import { bridgeMath, howWeGot, receipt } from "./math.js";
 import { countAll, growBars } from "./motion.js";
 
 export function renderEmpty(view, network, onPick) {
@@ -11,6 +12,7 @@ export function renderEmpty(view, network, onPick) {
   view.innerHTML = `<section class="fade-in">
     <h2 class="headline">${network.flagged_count} of ${network.clinic_count} clinics are out of alignment</h2>
     <p class="sub">Together they leave <b data-count="${network.at_stake_total}">${money(0)}</b> a year on the table.</p>
+    ${network.at_stake_math ? howWeGot(`How we got ${network.at_stake_math.rows.at(-1).value}`, `${receipt(network.at_stake_math.rows)}<p class="note">${esc(network.at_stake_math.note)}</p>`) : ""}
     <div id="summary"></div>
     <div class="bridge">
       <h3>The path from ${money(network.revenue)} to ${money(network.goal)}</h3>
@@ -18,6 +20,7 @@ export function renderEmpty(view, network, onPick) {
       <div class="bridge-scale"><span>$0</span><span>Goal ${money(network.goal)}</span></div>
       <ul class="bridge-legend">${legend}</ul>
       <p class="note">Each fix is priced across all ${network.clinic_count} clinics from the network's own data. New clinics cover the rest.</p>
+      ${network.bridge[0]?.rows ? howWeGot("How each step is priced", bridgeMath(network)) : ""}
     </div>
     <p class="hint">Pick a red vertebra to see what the agent found, or start here:</p>
     <div class="picks">${flagged.map((c) => `<button type="button" class="pick" data-id="${esc(c.id)}"><b>${esc(c.city)}</b><span>${money(c.at_stake)} a year at stake: ${esc(leverProblem(c.lever))}</span></button>`).join("")}</div>

@@ -56,7 +56,9 @@ Databricks App ◄─────────┘  (also runs the Director live o
   and the path to $250M), Clinics (every KPI for all 50, sortable; each clinic opens as a
   four-step story), Diagnoses, Outreach (approve, edit or skip every draft) and Results (agent vs
   generic reminder vs nothing, with the outcome model's assumptions). "Run the Director" runs the
-  agent live on one clinic and shows each step as it happens.
+  agent live on one clinic and shows each step as it happens. Every dollar figure has a "How we
+  got this" breakdown: each step of the calculation with the real inputs, built by
+  `src/app/explain.py` from the same values as the figure.
 
 ## The data
 
@@ -160,7 +162,8 @@ resources/                schema, jobs, app and MLflow experiment definitions
 src/chiro_agent/          agent package: data generator, tools, loop, Director, specialists, measure
 src/sql/                  observe step, agent tools (UC functions), output tables
 src/jobs/                 job entry points
-src/app/                  Databricks App: server.py (API), static/ (the page), live.py (live runs)
+src/app/                  Databricks App: server.py (API), static/ (the page), live.py (live runs),
+                          explain.py (the math behind each figure)
 scripts/                  run_app_locally.sh
 tests/                    unit tests (generator, outcome model, app API); tests/js for the page
 docs/design.md            design notes
