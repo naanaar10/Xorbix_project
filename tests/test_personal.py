@@ -48,7 +48,7 @@ def test_clinic_names_are_looked_up_once():
 def capture(monkeypatch, module):
     prompts = []
     monkeypatch.setattr(module, "run_agent", lambda client, endpoint, name, system, user, tools, **kw:
-                        prompts.append((system, user)) or type("R", (), {"final_text": "Done."})())
+                        prompts.append((system, user, name, tools)) or type("R", (), {"final_text": "Done."})())
     return prompts
 
 
@@ -61,10 +61,13 @@ def test_every_specialist_that_writes_to_people_gets_the_personal_rules(monkeypa
     for run in (specialists.run_retention, specialists.run_leads, specialists.run_capacity):
         run(ctx, "LOC007", "Patients quit after visit 3.")
     assert len(prompts) >= 3  # leads, capacity and at least one retention patient in the agent group
-    for system, _ in prompts:
-        assert "at least two facts" in system and "Milwaukee Spine & Wellness" in system
-        assert "Never write ID codes" in system and "how they pay" in system
+    for system, _, _, _ in prompts:
+        assert "at least two facts" in system and "Start with \"Hi there, it's Milwaukee Spine & Wellness.\"" in system
+        assert "Never write ID codes" in system and "how they pay" in system and "never make up a time" in system
         assert "{" not in system  # every placeholder was filled
+    # Leads can offer a real first visit, so they never invent one.
+    leads_tools = next(tools for _, _, name, tools in prompts if name.startswith("leads"))
+    assert "find_open_slots" in leads_tools.tools
 
 
 def test_loyalty_messages_name_each_patients_own_clinic(monkeypatch):
@@ -74,6 +77,6 @@ def test_loyalty_messages_name_each_patients_own_clinic(monkeypatch):
                    find_recent_finishers=lambda args: [{"patient_id": "PT9", "care_plan_id": "CP9",
                                                         "plan_type": "Corrective"}])
     network_specialists.run_loyalty(ctx)
-    system, user = prompts[0]
-    assert "at least two facts" in system and "clinic_name" in system
+    system, user, _, _ = prompts[0]
+    assert "at least two facts" in system and "Start with \"Hi there, it's \" and the patient's clinic_name" in system
     assert '"clinic_name": "Cincinnati Spine & Wellness"' in user

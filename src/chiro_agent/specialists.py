@@ -52,12 +52,13 @@ LEADS_SYSTEM = """You are the Leads Specialist for clinic {clinic}.
 Manager's brief: {brief}
 
 Open leads are going cold because first responses are slow. Call get_stale_leads, then queue a
-follow-up for up to {n} of them with queue_action, newest first:
+follow-up for up to {n} of them with queue_action, newest first. A Speed-to-lead call or Follow-up
+SMS can offer a first visit: call find_open_slots and give each lead a different slot.
 - Speed-to-lead call: phone call within the hour, for New leads.
 - Follow-up SMS: for leads already contacted once.
 - Nurture email: for older leads.
-Each lead is different: in the message use how they found us (source), how many days ago they asked
-(age_days) and whether we have been in touch yet (num_touchpoints). No two messages should read the same.
+Each lead is different: in the message use how they found us (source) and when they asked (age_days).
+Use num_touchpoints only to pick the channel. No two messages should read the same.
 Finish with one sentence recommending the process change that would stop leads going cold."""
 
 CAPACITY_SYSTEM = """You are the Capacity Specialist for clinic {clinic}.
@@ -141,7 +142,7 @@ def run_leads(ctx: RunContext, clinic: str, brief: str) -> dict:
         ctx, clinic, brief, "leads", LEADS_SYSTEM, "get_stale_leads",
         {"clinic_id": clinic, "max_leads": ctx.max_followups * 2}, "lead_id",
         ["Speed-to-lead call", "Follow-up SMS", "Nurture email"],
-        ["get_lead_response_stats", "get_stale_leads"])
+        ["get_lead_response_stats", "get_stale_leads", "find_open_slots"])
 
 
 def run_capacity(ctx: RunContext, clinic: str, brief: str) -> dict:

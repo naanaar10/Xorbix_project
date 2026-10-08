@@ -56,7 +56,7 @@ Steps:
 4. Reply with one sentence summing up what you queued.
 {PLAIN_WORDS}
 
-{personal_rules("the patient's own clinic (clinic_name in their details)")}"""
+{personal_rules()}"""
 
 
 def money(x: float) -> str:

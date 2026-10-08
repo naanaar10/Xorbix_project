@@ -53,16 +53,23 @@ class RunContext:
         self.actions_queued += sum(1 for r in rows if r["arm"] != "holdout")
 
 
-def personal_rules(clinic: str) -> str:
-    """How every message to a patient or lead is written. `clinic` names who it comes from."""
+def personal_rules(clinic: str | None = None) -> str:
+    """How every message to a patient or lead is written. `clinic` is the clinic's name, or None
+    when each person's clinic is in their own details (clinic_name)."""
+    opening = (f'Start with "Hi there, it\'s {clinic}."' if clinic
+               else 'Start with "Hi there, it\'s " and the patient\'s clinic_name.')
     return f"""Message rules. Make each message personal to this one person, using the facts the tools give you:
 - Use at least two facts about them, like how many visits they have done, how long since their last
   visit, the plan they finished, the time of day they usually come, how they found us, or when they asked.
-- Say it comes from {clinic}.
-- When you offer a time, write it exactly as the slot's "when" says (like "Thursday, Oct 8 at 2:30 PM").
+  Use them the way a friendly receptionist would, not by reading their file back: never quote how many
+  times we called or texted them, and write where they found us in plain words ("our website",
+  "a social media ad", "a friend").
+- {opening}
+- Only offer a time that find_open_slots returned, written exactly as that slot's "when" field, and put
+  the slot in offered_slot. If you have no slot, never make up a time; ask them to reply instead.
 - Never write ID codes (like PT0012345, PRV0043 or LD0106080). Never mention their age or how they pay:
   those can guide your choice, but stay out of the words.
-- Warm, under 320 characters, start with "Hi there". No names (we don't have them), no medical claims."""
+- Warm, under 320 characters. No names (we don't have them), no medical claims."""
 
 
 def friendly_time(slot_date: Any, slot_time: str) -> str:
