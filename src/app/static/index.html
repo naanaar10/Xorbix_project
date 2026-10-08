@@ -14,7 +14,7 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <h1><a href="#">Growth Director</a></h1>
+      <h1><a href="#overview">Growth Director</a></h1>
       <p>Finds where clinics lose revenue, works out why, and queues the fix for staff to approve.</p>
     </div>
     <div class="topbar-right">
@@ -28,6 +28,13 @@
       <div class="spine" id="spine"></div>
     </nav>
     <main class="panel" id="panel">
+      <nav class="tabs" id="tabs" aria-label="Sections">
+        <a href="#overview" data-tab="overview">Overview</a>
+        <a href="#clinics" data-tab="clinics">Clinics</a>
+        <a href="#diagnoses" data-tab="diagnoses">Diagnoses</a>
+        <a href="#outreach" data-tab="outreach">Outreach</a>
+        <a href="#results" data-tab="results">Results</a>
+      </nav>
       <section class="live" id="live" hidden aria-label="Live run"></section>
       <div id="view"><p class="notice">Loading the clinic network…</p></div>
     </main>

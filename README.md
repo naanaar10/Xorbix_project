@@ -52,9 +52,11 @@ Databricks App ◄─────────┘  (also runs the Director live o
   (default `databricks-gpt-oss-120b`, set by the `llm_endpoint` variable).
 - **Agent loop**: a plain tool-calling loop (`src/chiro_agent/loop.py`), traced with MLflow.
 - **App**: a small FastAPI server and one hand-written page (no build step) on Databricks Apps
-  (`src/app/`). The 50 clinics are drawn as a spine; pick one to read its diagnosis, approve its
-  outreach and see whether it worked. "Run the Director" runs the agent live on that clinic and
-  shows each step as it happens.
+  (`src/app/`). The 50 clinics are drawn as a spine. Five tabs: Overview (the Director's summary
+  and the path to $250M), Clinics (every KPI for all 50, sortable; each clinic opens as a
+  four-step story), Diagnoses, Outreach (approve, edit or skip every draft) and Results (agent vs
+  generic reminder vs nothing, with the outcome model's assumptions). "Run the Director" runs the
+  agent live on one clinic and shows each step as it happens.
 
 ## The data
 

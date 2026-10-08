@@ -1,5 +1,5 @@
 // The overview when no clinic is picked: the headline, the path to $250M, and where to start.
-import { esc, leverProblem, money } from "./format.js";
+import { agentHtml, esc, leverProblem, money, runKind, when } from "./format.js";
 import { countAll, growBars } from "./motion.js";
 
 export function renderEmpty(view, network, onPick) {
@@ -11,6 +11,7 @@ export function renderEmpty(view, network, onPick) {
   view.innerHTML = `<section class="fade-in">
     <h2 class="headline">${network.flagged_count} of ${network.clinic_count} clinics are out of alignment</h2>
     <p class="sub">Together they leave <b data-count="${network.at_stake_total}">${money(0)}</b> a year on the table.</p>
+    <div id="summary"></div>
     <div class="bridge">
       <h3>The path from ${money(network.revenue)} to ${money(network.goal)}</h3>
       <div class="bridge-bar" role="img" aria-label="${esc(parts.map((p) => `${p.label} ${money(p.value)}`).join(", "))}">${segments}</div>
@@ -24,4 +25,13 @@ export function renderEmpty(view, network, onPick) {
   view.querySelectorAll(".pick").forEach((b) => b.addEventListener("click", () => onPick(b.dataset.id)));
   growBars(view);
   countAll(view, money);
+}
+
+// The Director's own summary of a run, filled in when the run has loaded.
+export function renderSummary(el, run) {
+  if (!el || !run?.summary) return;
+  el.innerHTML = `<figure class="summary fade-in">
+    <div class="agent-voice">${agentHtml(run.summary)}</div>
+    <figcaption>The Director's summary of the ${runKind(run.trigger)} on ${esc(when(run.started_at))}</figcaption>
+  </figure>`;
 }

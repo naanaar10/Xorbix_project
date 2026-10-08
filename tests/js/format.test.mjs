@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { duration, esc, isWorse, kpiScale, kpiValue, money, plural, slotLabel, when } from "../../src/app/static/format.js";
+import { agentHtml, duration, esc, isWorse, kpiScale, kpiValue, money, plural, slotLabel, when } from "../../src/app/static/format.js";
 
 test("money uses K below a million and M above", () => {
   assert.equal(money(467808), "$468K");
@@ -39,4 +39,12 @@ test("slots and times read like a calendar", () => {
   assert.equal(duration(5), "0:05");
   assert.equal(plural(1, "patient"), "1 patient");
   assert.equal(plural(4, "outreach draft"), "4 outreach drafts");
+});
+
+test("the agent's Markdown becomes safe HTML: bold and bullets only, headings dropped", () => {
+  assert.equal(
+    agentHtml("**Executive Summary**\n\n- **Chicago (LOC012)** \u2013 leads wait.  \n- **<b>x</b>** & co"),
+    "<ul><li><b>Chicago (LOC012)</b> \u2013 leads wait.</li><li><b>&lt;b&gt;x&lt;/b&gt;</b> &amp; co</li></ul>");
+  assert.equal(agentHtml("One line.\nAnother line."), "<p>One line.</p><p>Another line.</p>");
+  assert.equal(agentHtml(null), "");
 });

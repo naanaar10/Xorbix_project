@@ -1,5 +1,6 @@
-// Step 3: the specialist's outreach drafts. Approve or skip each one; click a message to edit it
-// (the edit is saved when the card is approved). Control groups are summed up in one line.
+// Outreach drafts: approve or skip each one; click a message to edit it (the edit is saved when the
+// draft is approved). Used by the clinic story's cards and by the Outreach tab's table: any element
+// with class "item", data-id and data-status, holding a .message, a .decide and a .card-error.
 import { post } from "./api.js";
 import { esc, plural, slotLabel } from "./format.js";
 
@@ -19,19 +20,16 @@ export function renderActions(step, story, handlers) {
     ${actions.length > FIRST_CARDS ? `<p class="more"><button type="button" class="link" id="show-all">Show all ${actions.length}</button></p>` : ""}
     ${actions.length ? "" : `<p class="note">The specialist didn't draft any outreach in this run.</p>`}
     <p class="act-error" role="alert" hidden></p>`;
-  updateApproveAll(step);
-  step.addEventListener("click", (e) => onClick(e, step, story, handlers));
-  step.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && e.target.classList.contains("message")) {
-      e.preventDefault();
-      edit(e.target.closest(".card"));
-    }
+  step.querySelector("#show-all")?.addEventListener("click", (e) => {
+    step.querySelectorAll(".card[hidden]").forEach((c) => { c.hidden = false; });
+    e.target.closest(".more").remove();
   });
+  wireDecisions(step, () => ({ run_id: story.run.run_id, location_id: story.clinic.id }), handlers);
 }
 
 function card(a, hidden) {
   const who = `${a.target_type === "lead" ? "Lead" : "Patient"} ${a.target_id}${a.offered_slot ? `, ${slotLabel(a.offered_slot)}` : ""}`;
-  return `<article class="card" data-id="${esc(a.action_id)}" data-status="${esc(a.status)}"${hidden ? " hidden" : ""}>
+  return `<article class="card item" data-id="${esc(a.action_id)}" data-status="${esc(a.status)}"${hidden ? " hidden" : ""}>
     <p class="what">${esc(a.intervention)}<span>${esc(a.channel ?? "")}</span></p>
     <p class="who">${esc(who)}</p>
     <p class="message" tabindex="0" title="Click to edit">${esc(a.message ?? "")}</p>
@@ -41,29 +39,33 @@ function card(a, hidden) {
   </article>`;
 }
 
-function decision(status) {
+export function decision(status) {
   if (status === "Approved") return '<span class="state approved">Approved</span><button type="button" class="link" data-set="Pending">Undo</button>';
   if (status === "Rejected") return '<span class="state skipped">Skipped</span><button type="button" class="link" data-set="Pending">Undo</button>';
   return '<button type="button" class="approve" data-set="Approved">Approve</button><button type="button" class="link" data-set="Rejected">Skip</button>';
 }
 
-function onClick(e, step, story, handlers) {
-  const target = e.target;
-  if (target.id === "show-all") {
-    step.querySelectorAll(".card[hidden]").forEach((c) => { c.hidden = false; });
-    target.closest(".more").remove();
-  } else if (target.id === "approve-all") {
-    approveAll(step, story, handlers);
-  } else if (target.classList.contains("message")) {
-    edit(target.closest(".card"));
-  } else if (target.dataset.set) {
-    decide(target.closest(".card"), target.dataset.set, step, handlers);
-  }
+// `scope()` names what "Approve all" covers: { run_id, location_id } (location_id null = whole run).
+// Items with class "filtered-out" are not shown and are left alone by Approve all.
+export function wireDecisions(root, scope, handlers) {
+  updateApproveAll(root);
+  root.addEventListener("click", (e) => {
+    const target = e.target;
+    if (target.id === "approve-all") approveAll(root, scope(), handlers);
+    else if (target.classList.contains("message")) edit(target.closest(".item"));
+    else if (target.dataset.set) decide(target.closest(".item"), target.dataset.set, root, handlers);
+  });
+  root.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.target.classList.contains("message")) {
+      e.preventDefault();
+      edit(e.target.closest(".item"));
+    }
+  });
 }
 
-function edit(card) {
-  if (!card || card.dataset.status !== "Pending") return;
-  const text = card.querySelector(".message");
+function edit(item) {
+  if (!item || item.dataset.status !== "Pending") return;
+  const text = item.querySelector(".message");
   const box = document.createElement("textarea");
   box.value = text.textContent;
   box.dataset.original = text.textContent;
@@ -73,9 +75,9 @@ function edit(card) {
   box.focus();
 }
 
-// Each save is an UPDATE on the warehouse that takes a few seconds, so the card changes at once
+// Each save is an UPDATE on the warehouse that takes a few seconds, so the item changes at once
 // and saves happen in the background, one at a time and in order (they all touch one table).
-// A failed save puts the card back and says why.
+// A failed save puts the item back and says why.
 let saving = Promise.resolve();
 function enqueue(work) {
   const run = saving.then(work, work);
@@ -83,11 +85,11 @@ function enqueue(work) {
   return run;
 }
 
-const send = (card, body) => post(`/api/actions/${encodeURIComponent(card.dataset.id)}`, body);
+const send = (item, body) => post(`/api/actions/${encodeURIComponent(item.dataset.id)}`, body);
 
-function paint(card, status, message) {
-  card.dataset.status = status;
-  const box = card.querySelector("textarea");
+function paint(item, status, message) {
+  item.dataset.status = status;
+  const box = item.querySelector("textarea");
   if (box) {
     const text = document.createElement("p");
     text.className = "message";
@@ -96,71 +98,74 @@ function paint(card, status, message) {
     text.textContent = message ?? box.dataset.original;
     box.replaceWith(text);
   }
-  card.querySelector(".decide").innerHTML = decision(status);
+  item.querySelector(".decide").innerHTML = decision(status);
 }
 
-function decide(card, status, step, handlers) {
-  const error = card.querySelector(".card-error");
-  const box = card.querySelector("textarea");
-  const before = card.dataset.status;
-  const original = box ? box.dataset.original : card.querySelector(".message").textContent;
+function decide(item, status, root, handlers) {
+  const error = item.querySelector(".card-error");
+  const box = item.querySelector("textarea");
+  const before = item.dataset.status;
+  const original = box ? box.dataset.original : item.querySelector(".message").textContent;
   if (box && status === "Approved" && !box.value.trim()) {
     error.textContent = "Write a message before approving, or skip this one.";
     error.hidden = false;
     return;
   }
   const body = box && status === "Approved" ? { status, message: box.value } : { status };
-  paint(card, status, body.message);
+  paint(item, status, body.message);
   error.hidden = true;
-  handlers.onDecided?.(card.dataset.id, status, body.message);
-  updateApproveAll(step);
-  enqueue(() => send(card, body)).catch((err) => {
-    paint(card, before);
-    card.querySelector(".message").textContent = original;
-    handlers.onDecided?.(card.dataset.id, before, original);
+  handlers.onDecided?.(item.dataset.id, status, body.message);
+  updateApproveAll(root);
+  enqueue(() => send(item, body)).catch((err) => {
+    paint(item, before);
+    item.querySelector(".message").textContent = original;
+    handlers.onDecided?.(item.dataset.id, before, original);
     error.textContent = `Couldn't save: ${err.message}`;
     error.hidden = false;
-    updateApproveAll(step);
+    updateApproveAll(root);
   });
 }
 
-function approveAll(step, story, handlers) {
-  const error = step.querySelector(".act-error");
-  const cards = [...step.querySelectorAll('.card[data-status="Pending"]')];
-  const original = new Map(cards.map((c) => [c, c.querySelector("textarea")?.dataset.original ?? c.querySelector(".message").textContent]));
+const pendingItems = (root) => [...root.querySelectorAll('.item[data-status="Pending"]:not(.filtered-out)')];
+
+function approveAll(root, scope, handlers) {
+  const error = root.querySelector(".act-error");
+  const items = pendingItems(root);
+  const original = new Map(items.map((i) => [i, i.querySelector("textarea")?.dataset.original ?? i.querySelector(".message").textContent]));
   // Edited messages are saved one by one first, so no edit is lost; then the rest in one call.
   // A message emptied in the text box counts as not edited.
-  const edited = new Map(cards.filter((c) => c.querySelector("textarea")?.value.trim())
-    .map((c) => [c, c.querySelector("textarea").value]));
-  for (const card of cards) {
-    paint(card, "Approved", edited.get(card));
-    handlers.onDecided?.(card.dataset.id, "Approved", edited.get(card));
+  const edited = new Map(items.filter((i) => i.querySelector("textarea")?.value.trim())
+    .map((i) => [i, i.querySelector("textarea").value]));
+  for (const item of items) {
+    paint(item, "Approved", edited.get(item));
+    handlers.onDecided?.(item.dataset.id, "Approved", edited.get(item));
   }
   error.hidden = true;
-  updateApproveAll(step);
+  updateApproveAll(root);
   const saved = new Set();
   enqueue(async () => {
-    for (const [card, message] of edited) {
-      await send(card, { status: "Approved", message });
-      saved.add(card);
+    for (const [item, message] of edited) {
+      await send(item, { status: "Approved", message });
+      saved.add(item);
     }
-    await post("/api/actions/approve-all", { run_id: story.run.run_id, location_id: story.clinic.id });
+    await post("/api/actions/approve-all", scope);
   }).catch((err) => {
-    for (const card of cards) {
-      if (saved.has(card)) continue; // its own save went through: approved, with its edit
-      paint(card, "Pending");
-      card.querySelector(".message").textContent = original.get(card);
-      handlers.onDecided?.(card.dataset.id, "Pending", original.get(card));
+    for (const item of items) {
+      if (saved.has(item)) continue; // its own save went through: approved, with its edit
+      paint(item, "Pending");
+      item.querySelector(".message").textContent = original.get(item);
+      handlers.onDecided?.(item.dataset.id, "Pending", original.get(item));
     }
     error.textContent = `Couldn't approve them all: ${err.message}`;
     error.hidden = false;
-    updateApproveAll(step);
+    updateApproveAll(root);
   });
 }
 
-function updateApproveAll(step) {
-  const button = step.querySelector("#approve-all");
-  const pending = step.querySelectorAll('.card[data-status="Pending"]').length;
+export function updateApproveAll(root) {
+  const button = root.querySelector("#approve-all");
+  if (!button) return;
+  const pending = pendingItems(root).length;
   button.hidden = pending < 2;
   button.textContent = `Approve all ${pending}`;
 }

@@ -60,3 +60,27 @@ export function slotLabel(slot) {
   const day = DAY.format(new Date(Date.UTC(+y, +mo - 1, +d)));
   return `${day}, ${+h % 12 || 12}:${mi} ${+h < 12 ? "AM" : "PM"}${rest}`;
 }
+
+// The Director sometimes writes Markdown. Everything is escaped first; then only **bold** and
+// "- " bullets become markup. A line that is only bold text is a heading and is dropped.
+export function agentHtml(text) {
+  const out = [];
+  let list = [];
+  const flush = () => {
+    if (list.length) out.push(`<ul>${list.map((item) => `<li>${item}</li>`).join("")}</ul>`);
+    list = [];
+  };
+  for (const raw of String(text ?? "").split("\n")) {
+    const line = esc(raw.trim()).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+    if (!line || /^<b>[^<]*<\/b>:?$/.test(line)) {
+      flush();
+    } else if (/^[-*•] /.test(line)) {
+      list.push(line.slice(2).trim());
+    } else {
+      flush();
+      out.push(`<p>${line}</p>`);
+    }
+  }
+  flush();
+  return out.join("");
+}
