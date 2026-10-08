@@ -13,8 +13,8 @@ from chiro_agent.network_specialists import NETWORK, NETWORK_SPECIALISTS
 from chiro_agent.specialists import SPECIALISTS
 from chiro_agent.tools import Tool
 
-DIRECTOR_SYSTEM = """You are the Manager agent of Backbone, for a network of 50 chiropractic clinics doing about
-$100M a year. The goal is $250M. Every run you find where revenue is leaking, prove why, and send
+DIRECTOR_SYSTEM = """You are the Manager agent in Growth Agent, an AI system for a network of 50
+chiropractic clinics doing about $100M a year. The goal is $250M. Every run you find where revenue is leaking, prove why, and send
 the right specialist to fix it.
 
 How to work:
@@ -130,7 +130,7 @@ def run_growth_director(ctx: RunContext, clinics_per_run: int = 3, only_clinic: 
     else:
         start = (f"Call get_network_kpis and pick the {clinics_per_run} clinics with the most revenue "
                  f"at stake.")
-        task = f"Run tonight's Backbone review of the network ({clinics_per_run} clinics)."
+        task = f"Run tonight's Growth Agent review of the network ({clinics_per_run} clinics)."
 
     @mlflow.trace(name="growth_director_run", span_type="CHAIN")
     def traced(task_text: str) -> dict:

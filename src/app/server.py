@@ -1,4 +1,4 @@
-"""The Backbone web app: a JSON API over the agent's tables, plus one static page.
+"""The Growth Agent web app: a JSON API over the agent's tables, plus one static page.
 
 Run from src/ with `python -m app.server` (Databricks Apps does this; see resources/app.yml)."""
 from __future__ import annotations
@@ -71,7 +71,7 @@ class RunRequest(BaseModel):
 
 
 def create_app(backend: Backend) -> FastAPI:
-    api = FastAPI(title="Backbone", docs_url=None, redoc_url=None, openapi_url=None)
+    api = FastAPI(title="Growth Agent", docs_url=None, redoc_url=None, openapi_url=None)
     cache: dict[str, tuple[float, dict]] = {}
 
     def network() -> dict:

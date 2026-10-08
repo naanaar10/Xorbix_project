@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS {fq}.agent_runs (
   run_id STRING, started_at TIMESTAMP, finished_at TIMESTAMP, model STRING, trigger STRING,
   clinics_investigated INT, actions_queued INT, mlflow_experiment_id STRING, mlflow_trace_id STRING,
   status STRING, summary STRING)
-COMMENT 'One row per Backbone run.';
+COMMENT 'One row per Growth Agent run.';
 
 -- @@
 CREATE TABLE IF NOT EXISTS {fq}.clinic_diagnoses (

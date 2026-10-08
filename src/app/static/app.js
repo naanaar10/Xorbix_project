@@ -1,4 +1,4 @@
-// Backbone page: the spine on the left, five tabs on the right (Overview, Clinics, Diagnoses,
+// Growth Agent page: the spine on the left, five tabs on the right (Overview, Clinics, Diagnoses,
 // Outreach, Results). The URL hash holds the tab and clinic (#outreach, #clinics/LOC007), so reloads
 // and the back button work. Diagnoses, Outreach and Results show one whole run: the latest nightly
 // run, or the run picked in How it works. A clinic's story shows the latest run for that clinic.

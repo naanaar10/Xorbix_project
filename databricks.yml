@@ -1,4 +1,4 @@
-# Backbone: Databricks Asset Bundle.
+# Growth Agent: Databricks Asset Bundle.
 # Workspace-specific values live in variables or in your CLI profile, never in code.
 bundle:
   name: chiro-growth-agent

@@ -2,7 +2,7 @@ resources:
   apps:
     chiro_growth_app:
       name: chiro-growth-${bundle.target}
-      description: Backbone - the clinic spine, each clinic's diagnosis, outreach to approve and measured impact.
+      description: Growth Agent - the clinic spine, each clinic's diagnosis, outreach to approve and measured impact.
       source_code_path: ../src
       config:
         command: ["python", "-m", "app.server"]

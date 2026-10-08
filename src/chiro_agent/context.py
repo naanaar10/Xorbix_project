@@ -1,4 +1,4 @@
-"""Shared state for one Backbone run, plus the Python write tools every agent can use."""
+"""Shared state for one Growth Agent run, plus the Python write tools every agent can use."""
 from __future__ import annotations
 
 import hashlib

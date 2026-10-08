@@ -1,7 +1,7 @@
-# Backbone
+# Growth Agent
 
 An agentic AI prototype on Databricks for a chiropractic clinic network that does about $100M a
-year and wants to reach $250M. Every night Backbone's **Manager** agent works out which clinics
+year and wants to reach $250M. Every night Growth Agent's **Manager** agent works out which clinics
 are losing the most revenue, investigates why, and hands each problem to a **specialist agent**
 that drafts concrete outreach for staff to approve. Two more specialists then work on the whole
 network: **Marketing** moves budget to the channels that win patients cheapest, and **Loyalty**
