@@ -10,7 +10,7 @@ export function renderSpine(root, clinics, onSelect) {
   const top = Math.max(1, ...clinics.filter((c) => c.flagged).map((c) => c.at_stake));
   root.innerHTML = clinics.map((c, i) => {
     const shift = c.flagged ? Math.round(MAX_SHIFT * Math.sqrt(c.at_stake / top)) : 0;
-    const tip = `${c.id} ${c.city}, ${money(c.at_stake)} a year at stake`;
+    const tip = `${c.id} ${c.city}, ${money(c.at_stake)} lost each year`;
     const tag = c.flagged ? `<span class="tag"><b>${esc(c.id)}</b> ${esc(c.city)}</span>` : "";
     return `<button type="button" class="vertebra${c.flagged ? " flagged" : ""}" data-id="${esc(c.id)}" data-tip="${esc(tip)}" aria-label="${esc(tip)}" tabindex="-1" style="--i:${i};--shift:${shift}px"><span class="body"></span>${tag}</button>`;
   }).join("");

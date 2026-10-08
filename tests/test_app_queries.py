@@ -66,7 +66,7 @@ def test_clinic_story_without_a_diagnosis():
     assert [k["label"] for k in story["kpis"]] == ["Plan completion", "Patients going quiet"]
     assert story["kpis"][0] == {"label": "Plan completion", "value": 0.34, "median": 0.51, "unit": "pct",
                                 "better": "higher",
-                                "meaning": "Of the care plans that ended in the last year, the share the patient finished."}
+                                "meaning": "Out of every care plan that ended last year, how many the patient finished."}
     assert story["clinic"]["flagged"] is True
     assert wh.called("clinic_actions") == []
 
@@ -172,7 +172,7 @@ def test_recent_runs_and_steps():
         "run_steps": [{"agent": "director", "name": "get_network_kpis", "arguments": "{}", "result_preview": "[]"},
                       {"agent": "retention:PT1", "name": "final", "arguments": "", "result_preview": "done"}]})
     assert queries.recent_runs(wh, FQ)[0]["started_at"] == "2026-10-07T15:38:08Z"
-    assert queries.run_steps(wh, FQ, "r1") == [{"agent": "Director", "text": "Read the network's KPIs and revenue at stake",
+    assert queries.run_steps(wh, FQ, "r1") == [{"agent": "Director", "text": "Read every clinic's numbers and the money each one loses",
                                               "write": False, "phase": "reason"}]
 
 
@@ -192,7 +192,7 @@ def test_run_steps_show_the_hand_off_before_the_specialist_works():
         {"agent": "director", "name": "assign_specialist",
          "arguments": '{"location_id": "LOC007", "specialist": "retention"}', "result_preview": "{}"}]})
     assert [s["text"] for s in queries.run_steps(wh, FQ, "r1")] == [
-        "Recorded the diagnosis for LOC007", "Handed LOC007 to the retention specialist",
+        "Wrote down what's wrong at LOC007", "Handed LOC007 to the retention specialist",
         "Read the visit history of PT1", "The retention specialist finished with LOC007"]
 
 
@@ -289,8 +289,8 @@ def test_network_explains_its_numbers():
         "network_bridge": [BRIDGE]})
     net = queries.network(wh, FQ)
     assert net["at_stake_math"]["rows"] == [math_row("Chicago", "$1.14M", "slow lead replies"),
-                                            math_row("Milwaukee", "$468K", "patients drop out"),
-                                            math_row("Total a year", "$1.60M", "$1.14M + $468K")]
+                                            math_row("Milwaukee", "$468K", "patients quit their care plan"),
+                                            math_row("Total each year", "$1.60M", "$1.14M + $468K")]
     assert "$150K" in net["at_stake_math"]["note"]
     bridge = explain.bridge_math(BRIDGE, revenue=4e6, clinic_count=2, goal=250e6)
     assert [b["rows"] for b in net["bridge"]] == [bridge["leads"], bridge["capacity"], bridge["retention"],

@@ -12,7 +12,7 @@ WEEKDAYS = 261
 SHARE_OF_REMAINING_VISITS_KEPT = 0.7  # same as chiro_agent.measure
 # Gaps smaller than these are normal clinic-to-clinic variation and price at $0 (src/sql/observe.sql).
 TOLERANCE = {"completion": 0.03, "conversion": 0.02, "am": 0.10, "pm": 0.10, "no_show": 0.02}
-TITLES = {"retention": "Patients drop out", "leads": "Slow lead replies", "capacity": "Empty chairs"}
+TITLES = {"retention": "Patients quit their care plan", "leads": "Slow lead replies", "capacity": "Empty chairs"}
 
 
 def usd(x: Any) -> str:
@@ -39,7 +39,7 @@ def pct1(x: Any) -> str:
 
 
 def pts(x: Any) -> str:
-    return f"{round(float(x or 0) * 100, 1):g} pts"
+    return f"{round(float(x or 0) * 100, 1):g} points"
 
 
 def count(x: Any) -> str:
@@ -62,11 +62,11 @@ def _gap(label: str, here: float, typical: float, tolerance: float, higher_is_be
     if worse_by <= 0:
         how = f"{pct1(here)} here, better than the {pct1(typical)} typical clinic"
     elif gap == 0:
-        how = f"{pct1(here)} here vs {pct1(typical)} at the typical clinic: within the {pts(tolerance)} of normal variation"
+        how = f"{pct1(here)} here vs {pct1(typical)} at the typical clinic: a small difference we ignore (under {pts(tolerance)})"
     elif higher_is_better:
-        how = f"{pct1(typical)} typical clinic − {pct1(here)} here − {pts(tolerance)} normal variation"
+        how = f"{pct1(typical)} typical clinic − {pct1(here)} here − {pts(tolerance)} we ignore"
     else:
-        how = f"{pct1(here)} here − {pct1(typical)} typical clinic − {pts(tolerance)} normal variation"
+        how = f"{pct1(here)} here − {pct1(typical)} typical clinic − {pts(tolerance)} we ignore"
     return gap, row(f"{label} gap", pts(gap), how)
 
 
@@ -81,11 +81,11 @@ def _retention(k: dict) -> dict:
     rows = [gap_row]
     if gap > 0:
         plans = gap * _f(k, "closed_plans_per_year")
-        rows += [row("Plans not finished a year", count(plans),
-                     f"{pct1(gap)} × {count(k.get('closed_plans_per_year'))} plans that ended in the last year"),
-                 row("A year at stake", usd(value), f"{count(plans)} × {dollars(k.get('value_of_a_completion'))} per finished plan")]
+        rows += [row("Care plans not finished each year", count(plans),
+                     f"{pct1(gap)} × {count(k.get('closed_plans_per_year'))} care plans that ended last year"),
+                 row("Lost each year", usd(value), f"{count(plans)} × {dollars(k.get('value_of_a_completion'))} per finished care plan")]
     else:
-        rows.append(row("A year at stake", usd(value)))
+        rows.append(row("Lost each year", usd(value)))
     return {"key": "retention", "title": TITLES["retention"], "value": value, "rows": rows}
 
 
@@ -96,11 +96,11 @@ def _leads(k: dict) -> dict:
     rows = [gap_row]
     if gap > 0:
         patients = gap * _f(k, "leads_per_year")
-        rows += [row("Patients not won a year", count(patients),
+        rows += [row("New patients missed each year", count(patients),
                      f"{pct1(gap)} × {count(k.get('leads_per_year'))} leads a year"),
-                 row("A year at stake", usd(value), f"{count(patients)} × {dollars(k.get('revenue_per_patient'))} per new patient")]
+                 row("Lost each year", usd(value), f"{count(patients)} × {dollars(k.get('revenue_per_patient'))} per new patient")]
     else:
-        rows.append(row("A year at stake", usd(value)))
+        rows.append(row("Lost each year", usd(value)))
     return {"key": "leads", "title": TITLES["leads"], "value": value, "rows": rows}
 
 
@@ -118,9 +118,9 @@ def _capacity(k: dict) -> dict:
     note = None
     if terms:
         visits = sum(gap * base for gap, base, _ in terms)
-        rows += [row("Visits lost a year", count(visits),
+        rows += [row("Visits lost each year", count(visits),
                      " + ".join(f"{pct1(gap)} × {count(base)} {what}" for gap, base, what in terms)),
-                 row("A year at stake", usd(value), f"{count(visits)} × {cents(k.get('avg_visit_revenue'))} per visit")]
+                 row("Lost each year", usd(value), f"{count(visits)} × {cents(k.get('avg_visit_revenue'))} per visit")]
         slots = [(base, what) for gap, base, what in terms if what.endswith("slots")]
         per_chiro = SLOTS_PER_DAYPART * WEEKDAYS
         if len(slots) == 1:
@@ -132,14 +132,14 @@ def _capacity(k: dict) -> dict:
                     f"slots × {WEEKDAYS} weekdays ({count(_f(k, 'am_capacity') / per_chiro)} in the mornings, "
                     f"{count(_f(k, 'pm_capacity') / per_chiro)} in the afternoons).")
     else:
-        rows.append(row("A year at stake", usd(value)))
+        rows.append(row("Lost each year", usd(value)))
     return {"key": "capacity", "title": TITLES["capacity"], "value": value, "rows": rows, "note": note}
 
 
 def clinic_math(k: dict) -> dict:
     """One clinic's revenue at stake, problem by problem, biggest first, and the total."""
     levers = sorted([_retention(k), _leads(k), _capacity(k)], key=lambda part: -part["value"])
-    total = row("Total a year at stake", usd(k.get("total_revenue_at_stake")),
+    total = row("Total lost each year", usd(k.get("total_revenue_at_stake")),
                 " + ".join(f"{usd(part['value'])} {part['title'].lower()}" for part in levers))
     return {"levers": levers, "total": total}
 
@@ -150,15 +150,15 @@ def unit_math(k: dict) -> list[dict]:
     revenue = usd(k.get("all_visit_revenue"))
     return [
         row("Per new patient", dollars(k.get("revenue_per_patient")),
-            f"{revenue} of visit revenue ÷ {count(k.get('all_patients'))} patients" if has_inputs
-            else "visit revenue ÷ patients"),
-        row("Per finished plan", dollars(k.get("value_of_a_completion")),
-            f"{dollars(k.get('completer_revenue'))} average lifetime revenue of a patient who finished a plan − "
-            f"{dollars(k.get('dropper_revenue'))} for one who dropped out" if has_inputs
-            else "lifetime revenue of a patient who finished a plan − one who dropped out"),
+            f"{revenue} of revenue from visits ÷ {count(k.get('all_patients'))} patients" if has_inputs
+            else "revenue from visits ÷ patients"),
+        row("Per finished care plan", dollars(k.get("value_of_a_completion")),
+            f"{dollars(k.get('completer_revenue'))} that a patient who finished a care plan spends in total − "
+            f"{dollars(k.get('dropper_revenue'))} for one who quit early" if has_inputs
+            else "what a patient who finished a care plan spends in total − one who quit early"),
         row("Per visit", cents(k.get("avg_visit_revenue")),
-            f"{revenue} of visit revenue ÷ {count(k.get('all_visits'))} visits" if has_inputs
-            else "visit revenue ÷ visits"),
+            f"{revenue} of revenue from visits ÷ {count(k.get('all_visits'))} visits" if has_inputs
+            else "revenue from visits ÷ visits"),
     ]
 
 
@@ -177,24 +177,24 @@ def bridge_math(b: dict, revenue: float, clinic_count: int, goal: float) -> dict
     new_clinics = math.ceil(remainder / per_clinic) if per_clinic else 0
     return {
         "leads": [
-            row("Leads a year", count(leads_per_year), "every clinic, the last 11 months scaled to a year"),
+            row("Leads a year", count(leads_per_year), "all clinics: the last 11 months, stretched to a full year"),
             row("Conversion when a lead hears back within an hour", pct1(fast)),
             row("Conversion today", pct1(today)),
             row("Extra patients a year", count(extra_patients), f"({pct1(fast)} − {pct1(today)}) × {count(leads_per_year)} leads"),
             row("A year", usd(values[0]), f"{count(extra_patients)} × {dollars(b.get('revenue_per_patient'))} per new patient")],
         "capacity": [
             row("Afternoon slots a year", count(slots),
-                f"every chiropractor who works afternoons × {SLOTS_PER_DAYPART} slots × {WEEKDAYS} weekdays"),
+                f"each chiropractor who works afternoons × {SLOTS_PER_DAYPART} slots × {WEEKDAYS} weekdays"),
             row("Booked today", count(booked), f"{pct1(booked / slots if slots else 0)} of afternoon slots"),
             row("Booked at 85%", count(target), f"85% × {count(slots)}"),
             row("Extra visits a year", count(target - booked), f"{count(target)} − {count(booked)}"),
             row("A year", usd(values[1]), f"{count(target - booked)} × {cents(b.get('visit_revenue'))} per visit")],
         "retention": [
-            row("Plans that end a year", count(plans), "finished or dropped, every clinic"),
-            row("Completion at the top 10% of clinics", pct1(top)),
-            row("Completion at the typical clinic", pct1(typical)),
-            row("Extra plans finished a year", count(extra_plans), f"({pct1(top)} − {pct1(typical)}) × {count(plans)} plans"),
-            row("A year", usd(values[2]), f"{count(extra_plans)} × {dollars(b.get('completion_value'))} per finished plan")],
+            row("Care plans that end each year", count(plans), "finished or quit early, all clinics"),
+            row("Plan completion at the best 10% of clinics", pct1(top)),
+            row("Plan completion at the typical clinic", pct1(typical)),
+            row("Extra care plans finished each year", count(extra_plans), f"({pct1(top)} − {pct1(typical)}) × {count(plans)} care plans"),
+            row("A year", usd(values[2]), f"{count(extra_plans)} × {dollars(b.get('completion_value'))} per finished care plan")],
         "new_clinics": [
             row("Goal", usd(goal)),
             row("Revenue today", usd(revenue), f"visit revenue in the last 12 months, {clinic_count} clinics"),
@@ -222,26 +222,26 @@ def outcome_math(impact: list[dict], annual_dropouts: float, avg_visit_revenue: 
     extra = max(0.0, lift) * annual_dropouts
     return {
         "lift": [
-            row("Came back after agent outreach", pct1(agent["return_rate"]),
+            row("Came back after the agent's message", pct1(agent["return_rate"]),
                 f"{agent['patients_returned']} of {agent['patients']} patients"),
-            row("Came back with no outreach", pct1(holdout["return_rate"]),
+            row("Came back with no message", pct1(holdout["return_rate"]),
                 f"{holdout['patients_returned']} of {holdout['patients']} patients, the holdout group"),
             row("More patients came back", pts(lift), f"{pct1(agent['return_rate'])} − {pct1(holdout['return_rate'])}")],
         "recovered": [
-            row("Agent patients who came back", str(agent["patients_returned"])),
-            row("Visits left on their plans", num1(visits_left),
+            row("Patients who came back after the agent's message", str(agent["patients_returned"])),
+            row("Visits left on their care plans", num1(visits_left),
                 f"the visits those {agent['patients_returned']} patients still had to go"),
             row("Visits we count", num1(counted),
                 f"{SHARE_OF_REMAINING_VISITS_KEPT:.0%} of {num1(visits_left)}: patients who come back don't all finish"),
-            row("Recovered", usd(recovered), f"{num1(counted)} × {cents(avg_visit_revenue)} per visit")],
+            row("Money won back", usd(recovered), f"{num1(counted)} × {cents(avg_visit_revenue)} per visit")],
         "annualized": [
-            row("More patients came back", pts(lift), "agent outreach vs no outreach, above"),
-            row("Patients who drop out of a plan in a year", count(annual_dropouts), "every clinic"),
+            row("More patients came back", pts(lift), "the agent's message vs no message, from above"),
+            row("Patients who quit a care plan each year", count(annual_dropouts), "all clinics"),
             row("Extra patients back a year", count(extra),
                 f"{pct1(lift)} × {count(annual_dropouts)}" if lift > 0
-                else "no more patients came back than with no outreach, so none"),
+                else "no more patients came back than with no message, so none"),
             row("Value of a patient who comes back", dollars(per_return),
-                f"{usd(recovered_all)} recovered ÷ {returned_all} patients who came back, in all groups"),
+                f"{usd(recovered_all)} won back ÷ {returned_all} patients who came back (all groups)"),
             row("A year across the network", usd(agent["annualized_network_revenue"]),
                 f"{count(extra)} × {dollars(per_return)}")],
     }

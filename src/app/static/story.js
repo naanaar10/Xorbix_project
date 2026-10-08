@@ -27,8 +27,8 @@ export function renderStory(view, story, handlers) {
 
 function head({ clinic, lever, run, math }) {
   const stake = clinic.flagged
-    ? `<p class="stake"><b data-count="${clinic.at_stake}">${money(0)}</b> a year at stake: ${esc(leverProblem(lever))}</p>`
-    : `<p class="stake ok">In line with the network${clinic.at_stake >= 1000 ? `: ${money(clinic.at_stake)} a year at stake` : ""}</p>`;
+    ? `<p class="stake"><b data-count="${clinic.at_stake}">${money(0)}</b> lost each year: ${esc(leverProblem(lever))}</p>`
+    : `<p class="stake ok">Doing about as well as the other clinics${clinic.at_stake >= 1000 ? `: ${money(clinic.at_stake)} lost each year` : ""}</p>`;
   const source = run ? `<p class="source">From the ${runKind(run.trigger)} on ${esc(when(run.started_at))}</p>` : "";
   const how = math ? howWeGot(`How we got ${math.total.value}`, clinicMath(math, math.units)) : "";
   return `<header class="story-head"><h2>${esc(clinic.city)}<span class="id">${esc(clinic.id)}</span></h2>${stake}${how}${source}</header>`;
@@ -43,7 +43,7 @@ function whatsWrong({ kpis }) {
   }).join("");
   const meanings = kpis.filter((k) => k.meaning).map((k) => `<dt>${esc(k.label)}</dt><dd>${esc(k.meaning)}</dd>`).join("");
   return `<li class="step"><h3><span class="n">1</span>What's wrong</h3><div class="kpis">${rows}</div>
-    <p class="note">This clinic's figure, then the typical clinic's (the network median, shown by the dark tick).</p>
+    <p class="note">First this clinic's number, then the typical clinic's. The dark line on each bar is the typical clinic.</p>
     ${meanings ? howWeGot("What these measure", `<dl class="meanings">${meanings}</dl>`) : ""}</li>`;
 }
 
@@ -51,25 +51,25 @@ function why({ diagnosis }) {
   return `<li class="step"><h3><span class="n">2</span>Why, in the agent's words</h3>
     <blockquote class="agent-voice">${agentHtml(diagnosis.root_cause)}</blockquote>
     <div class="evidence">
-      <p><span class="k">Evidence</span>${esc(diagnosis.evidence)}</p>
-      <p><span class="k">Recommended fix</span>${esc(diagnosis.recommended_fix)}</p>
+      <p><span class="k">What the numbers show</span>${esc(diagnosis.evidence)}</p>
+      <p><span class="k">What to do</span>${esc(diagnosis.recommended_fix)}</p>
     </div>
-    <p class="handoff">Handed to the ${esc(diagnosis.specialist)} specialist</p></li>`;
+    <p class="handoff">Passed to the ${esc(diagnosis.specialist)} specialist agent</p></li>`;
 }
 
 function didItWork({ lever, actions, impact, impact_run: measured, impact_math: math }) {
   let body;
   if (lever !== "retention") {
-    body = `<p>${plural(actions.length, "outreach draft")} ${actions.length === 1 ? "is" : "are"} waiting for staff. Results are measured once outreach is sent.</p>`;
+    body = `<p>${plural(actions.length, "message")} ${actions.length === 1 ? "is" : "are"} waiting for staff. We can measure results once they're sent.</p>`;
   } else if (!impact.length) {
     body = "<p>Not measured yet. Results appear after the measure step runs.</p>";
   } else {
     const agent = impact.find((a) => a.arm === "agent");
     const source = measured && !measured.same_as_story
-      ? `<p class="note">Measured on the ${runKind(measured.trigger)} of ${esc(when(measured.started_at))}, where ${measured.agent_patients} patients got agent outreach. This run's sample is too small to measure on its own.</p>`
+      ? `<p class="note">These results come from the ${runKind(measured.trigger)} of ${esc(when(measured.started_at))}, where ${measured.agent_patients} patients got the agent's message. This run had too few patients to measure on its own.</p>`
       : "";
     const projection = agent
-      ? `<p class="projection">About <b data-count="${agent.annualized_network_revenue}">${money(0)}</b> a year if used across the network. Simulated outcomes: outreach isn't really sent in this prototype.</p>`
+      ? `<p class="projection">About <b data-count="${agent.annualized_network_revenue}">${money(0)}</b> a year if every clinic did this. These results are simulated: the messages aren't really sent in this demo.</p>`
       : "";
     const how = agent && math ? howWeGot(`How we got ${math.annualized.at(-1).value}`, outcomeMath(math)) : "";
     body = `${source}${armBars(impact)}${projection}${how}`;

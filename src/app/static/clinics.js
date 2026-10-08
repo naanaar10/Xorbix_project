@@ -2,7 +2,7 @@
 // The clinics out of alignment are marked; clicking a row opens that clinic's story.
 import { esc, money, pct } from "./format.js";
 
-const PROBLEM = { retention: "Patients drop out", leads: "Slow lead replies", capacity: "Empty chairs" };
+const PROBLEM = { retention: "Patients quit their care plan", leads: "Slow lead replies", capacity: "Empty chairs" };
 
 const hours = (x) => (x == null ? "" : Number(x).toFixed(1));
 const count = (x) => (x == null ? "" : String(Math.round(x)));
@@ -10,7 +10,7 @@ const rate = (x) => (x == null ? "" : pct(x));
 
 // key, header, format, which way is better (sets the first sort direction)
 const COLUMNS = [
-  ["at_stake", "At stake / yr", money, "lower"],
+  ["at_stake", "Lost / yr", money, "lower"],
   ["revenue", "Revenue / yr", money, "higher"],
   ["completion", "Plan completion", rate, "higher"],
   ["conversion", "Lead conversion", rate, "higher"],
@@ -39,12 +39,12 @@ export function renderClinics(view, network, onOpen) {
       ${COLUMNS.map(([key, , format]) => `<td class="num${key === "at_stake" && c.flagged ? " at-stake" : ""}">${format(c[key])}</td>`).join("")}
     </tr>`).join("");
   view.innerHTML = `<section class="fade-in">
-    <header class="tab-head"><h2>Clinics</h2><p class="source">${network.clinic_count} clinics, ${network.flagged_count} out of alignment (at least ${money(network.flag_above)} a year at stake). Click a column to sort it, or a clinic to open its story.</p></header>
+    <header class="tab-head"><h2>Clinics</h2><p class="source">${network.clinic_count} clinics. ${network.flagged_count} lose more than ${money(network.flag_above)} a year. Click a column to sort, or a clinic to see its story.</p></header>
     <div class="table-scroll"><table class="table clinics">
       <thead><tr><th scope="col">Clinic</th><th scope="col">Problem</th>${header}</tr></thead>
       <tbody>${median}${rows}</tbody>
     </table></div>
-    <p class="note">At stake: revenue a clinic loses a year where it trails the typical clinic by more than normal variation. Open a clinic to see how its figure was worked out.</p>
+    <p class="note">Lost / yr: money a clinic loses each year where it does worse than the typical clinic (small differences are ignored). Open a clinic to see the math.</p>
   </section>`;
   view.querySelectorAll(".sort").forEach((button) => button.addEventListener("click", () => {
     const [key, , , better] = COLUMNS.find(([k]) => k === button.dataset.key);

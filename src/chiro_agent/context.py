@@ -106,7 +106,7 @@ def queue_action_tool(ctx: RunContext, *, location_id: str, specialist: str, tar
                         "channel": {"type": "string", "enum": ["SMS", "Phone call", "Email"]},
                         "message": {"type": "string", "description": "Short, warm message to send (max 320 characters, no names, no medical claims)"},
                         "offered_slot": {"type": "string", "description": "Slot offered, exactly as 'YYYY-MM-DD HH:MM with PROVIDER_ID' (e.g. '2026-10-09 13:30 with PRV0043'), if any"},
-                        "rationale": {"type": "string", "description": "One sentence citing the signals behind this choice"},
+                        "rationale": {"type": "string", "description": "One short, plain sentence a 10-year-old could follow, naming the signals behind this choice (no column names)"},
                     }},
         run=run)
 

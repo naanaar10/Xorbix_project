@@ -4,7 +4,7 @@ import { esc, money, pct, runKind, when } from "./format.js";
 import { howWeGot, outcomeMath } from "./math.js";
 import { countAll, growBars } from "./motion.js";
 
-const ARMS = { agent: "Agent outreach", generic: "Generic reminder", holdout: "Nothing" };
+const ARMS = { agent: "Agent's message", generic: "Plain reminder", holdout: "No message" };
 
 export function armBars(impact) {
   const top = Math.max(0.5, ...impact.map((a) => a.return_rate * 1.25));
@@ -20,16 +20,16 @@ export function renderResults(view, data, assumptions) {
   if (!run) {
     body = '<p class="notice">No runs yet. Run the Director to see results here.</p>';
   } else if (!agent) {
-    body = '<p class="notice">This run had no retention outreach to measure. Pick another run in How it works.</p>';
+    body = '<p class="notice">This run had no patient messages to measure. Pick another run in How it works.</p>';
   } else {
     body = `<div class="metrics">
-        <div class="metric"><p class="value">${agent.lift_vs_holdout >= 0 ? "+" : ""}${Math.round(agent.lift_vs_holdout * 100)} pts</p><p class="label">more patients came back than with no outreach</p></div>
-        <div class="metric"><p class="value" data-count="${agent.recovered_revenue ?? 0}">${money(0)}</p><p class="label">recovered by agent outreach in this run</p></div>
-        <div class="metric"><p class="value" data-count="${agent.annualized_network_revenue}">${money(0)}</p><p class="label">a year if used across the network</p></div>
+        <div class="metric"><p class="value">${agent.lift_vs_holdout >= 0 ? "+" : ""}${Math.round(agent.lift_vs_holdout * 100)} pts</p><p class="label">more patients came back than with no message</p></div>
+        <div class="metric"><p class="value" data-count="${agent.recovered_revenue ?? 0}">${money(0)}</p><p class="label">won back by the agent's messages this run</p></div>
+        <div class="metric"><p class="value" data-count="${agent.annualized_network_revenue}">${money(0)}</p><p class="label">a year if every clinic did this</p></div>
       </div>
       ${data.impact_math ? howWeGot("How we got these three numbers", outcomeMath(data.impact_math)) : ""}
       ${armBars(impact)}
-      <p class="projection">Patients were split at random before any agent saw them, so the three groups are comparable. Outcomes are simulated: outreach isn't really sent in this prototype.</p>
+      <p class="projection">Before the agent saw anyone, patients were split into three groups at random, so the comparison is fair. These results are simulated: the messages aren't really sent in this demo.</p>
       ${assumptionsTable(assumptions)}`;
   }
   view.innerHTML = `<section class="fade-in">
@@ -48,8 +48,8 @@ function assumptionsTable(assumptions) {
     return `<tr><th scope="row">${esc(assumptions.reasons[r])}</th>${row.map((p) => `<td class="num${p === best ? " best" : ""}">${pct(p)}</td>`).join("")}</tr>`;
   }).join("");
   return `<details class="assumptions">
-    <summary>See the assumptions</summary>
-    <p class="note">Chance a patient comes back, by their hidden reason for stopping (rows) and the outreach they get (columns). No agent can see the reason; the best match for each reason is in bold.</p>
-    <div class="table-scroll"><table class="table small"><thead><tr><th scope="col">Hidden reason</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>
+    <summary>See what we assumed</summary>
+    <p class="note">How likely a patient is to come back, depending on why they really stopped (rows) and which message they get (columns). The agent never sees the real reason. The best message for each reason is in bold.</p>
+    <div class="table-scroll"><table class="table small"><thead><tr><th scope="col">Real reason (hidden)</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>
   </details>`;
 }

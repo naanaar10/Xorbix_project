@@ -38,8 +38,8 @@ def test_number_formats():
         == ["$1.14M", "$927K", "$468K", "$70.4K", "$1.00M", "$29.7M", "$102M", "$450", "$0"]
     assert [explain.dollars(x) for x in (1128.13, 1911.54, 643.0)] == ["$1,128", "$1,912", "$643"]
     assert explain.cents(110.874) == "$110.87"
-    assert explain.pct1(0.15087) == "15.1%" and explain.pts(0.11866) == "11.9 pts"
-    assert explain.pts(0.02) == "2 pts" and explain.pts(0) == "0 pts" and explain.pts(0.1) == "10 pts"
+    assert explain.pct1(0.15087) == "15.1%" and explain.pts(0.11866) == "11.9 points"
+    assert explain.pts(0.02) == "2 points" and explain.pts(0) == "0 points" and explain.pts(0.1) == "10 points"
     assert explain.count(8485.43) == "8,485"
 
 
@@ -47,32 +47,32 @@ def test_a_leads_gap_is_priced_step_by_step():
     leads = lever(explain.clinic_math(CHICAGO), "leads")
     assert leads["title"] == "Slow lead replies" and leads["value"] == 1135880.4803795202
     assert leads["rows"] == [
-        row("Lead conversion gap", "11.9 pts", "29.0% typical clinic − 15.1% here − 2 pts normal variation"),
-        row("Patients not won a year", "1,007", "11.9% × 8,485 leads a year"),
-        row("A year at stake", "$1.14M", "1,007 × $1,128 per new patient")]
+        row("Lead conversion gap", "11.9 points", "29.0% typical clinic − 15.1% here − 2 points we ignore"),
+        row("New patients missed each year", "1,007", "11.9% × 8,485 leads a year"),
+        row("Lost each year", "$1.14M", "1,007 × $1,128 per new patient")]
 
 
 def test_a_problem_inside_normal_variation_is_worth_nothing():
     math = explain.clinic_math(CHICAGO)
     assert lever(math, "retention")["rows"] == [
-        row("Plan completion gap", "0 pts", "55.3% here, better than the 50.9% typical clinic"),
-        row("A year at stake", "$0")]
+        row("Plan completion gap", "0 points", "55.3% here, better than the 50.9% typical clinic"),
+        row("Lost each year", "$0")]
     assert lever(math, "capacity")["rows"][0] == row(
-        "Mornings booked gap", "0 pts", "84.0% here, better than the 82.3% typical clinic")
+        "Mornings booked gap", "0 points", "84.0% here, better than the 82.3% typical clinic")
     assert lever(math, "capacity")["rows"][2] == row(
-        "No-show gap", "0 pts", "7.8% here, better than the 8.2% typical clinic")
+        "No-show gap", "0 points", "7.8% here, better than the 8.2% typical clinic")
     # Worse than typical, but by less than the band we treat as normal.
     assert lever(explain.clinic_math(ST_LOUIS), "capacity")["rows"][0] == row(
-        "Mornings booked gap", "0 pts", "80.3% here vs 82.3% at the typical clinic: within the 10 pts of normal variation")
+        "Mornings booked gap", "0 points", "80.3% here vs 82.3% at the typical clinic: a small difference we ignore (under 10 points)")
 
 
 def test_empty_chairs_add_up_slots_and_no_shows():
     capacity = lever(explain.clinic_math(ST_LOUIS), "capacity")
     assert capacity["rows"][1:] == [
-        row("Afternoons booked gap", "24.9 pts", "75.6% typical clinic − 40.7% here − 10 pts normal variation"),
-        row("No-show gap", "7.4 pts", "17.6% here − 8.2% typical clinic − 2 pts normal variation"),
-        row("Visits lost a year", "8,358", "24.9% × 23,490 afternoon slots + 7.4% × 34,178 appointments"),
-        row("A year at stake", "$927K", "8,358 × $110.87 per visit")]
+        row("Afternoons booked gap", "24.9 points", "75.6% typical clinic − 40.7% here − 10 points we ignore"),
+        row("No-show gap", "7.4 points", "17.6% here − 8.2% typical clinic − 2 points we ignore"),
+        row("Visits lost each year", "8,358", "24.9% × 23,490 afternoon slots + 7.4% × 34,178 appointments"),
+        row("Lost each year", "$927K", "8,358 × $110.87 per visit")]
     assert capacity["note"] == ("Slots a year: 9 chiropractors × 10 half-hour slots a morning or afternoon "
                                 "× 261 weekdays = 23,490.")
 
@@ -81,14 +81,14 @@ def test_the_total_adds_the_problems_biggest_first():
     math = explain.clinic_math(MILWAUKEE)
     assert [part["key"] for part in math["levers"]] == ["retention", "capacity", "leads"]
     assert lever(math, "retention")["rows"] == [
-        row("Plan completion gap", "13.8 pts", "50.9% typical clinic − 34.1% here − 3 pts normal variation"),
-        row("Plans not finished a year", "208", "13.8% × 1,505 plans that ended in the last year"),
-        row("A year at stake", "$397K", "208 × $1,912 per finished plan")]
+        row("Plan completion gap", "13.8 points", "50.9% typical clinic − 34.1% here − 3 points we ignore"),
+        row("Care plans not finished each year", "208", "13.8% × 1,505 care plans that ended last year"),
+        row("Lost each year", "$397K", "208 × $1,912 per finished care plan")]
     assert lever(math, "capacity")["rows"][3:] == [
-        row("Visits lost a year", "635", "8.1% × 7,830 afternoon slots"),
-        row("A year at stake", "$70.4K", "635 × $110.87 per visit")]
-    assert math["total"] == row("Total a year at stake", "$468K",
-                                "$397K patients drop out + $70.4K empty chairs + $0 slow lead replies")
+        row("Visits lost each year", "635", "8.1% × 7,830 afternoon slots"),
+        row("Lost each year", "$70.4K", "635 × $110.87 per visit")]
+    assert math["total"] == row("Total lost each year", "$468K",
+                                "$397K patients quit their care plan + $70.4K empty chairs + $0 slow lead replies")
 
 
 def test_every_lever_matches_the_figure_it_explains():
@@ -104,11 +104,11 @@ def test_unit_values_show_where_they_come_from():
     k = {**UNITS, "all_visit_revenue": 136_772_000.0, "all_visits": 1233568, "all_patients": 121237,
          "completer_revenue": 2554.538069916297, "dropper_revenue": 643.001564223642}
     assert explain.unit_math(k) == [
-        row("Per new patient", "$1,128", "$137M of visit revenue ÷ 121,237 patients"),
-        row("Per finished plan", "$1,912",
-            "$2,555 average lifetime revenue of a patient who finished a plan − $643 for one who dropped out"),
-        row("Per visit", "$110.87", "$137M of visit revenue ÷ 1,233,568 visits")]
-    assert explain.unit_math(UNITS)[0] == row("Per new patient", "$1,128", "visit revenue ÷ patients")
+        row("Per new patient", "$1,128", "$137M of revenue from visits ÷ 121,237 patients"),
+        row("Per finished care plan", "$1,912",
+            "$2,555 that a patient who finished a care plan spends in total − $643 for one who quit early"),
+        row("Per visit", "$110.87", "$137M of revenue from visits ÷ 1,233,568 visits")]
+    assert explain.unit_math(UNITS)[0] == row("Per new patient", "$1,128", "revenue from visits ÷ patients")
 
 
 BRIDGE = {"leads_per_year": 282195.1194029851, "conversion": 0.28789850232238484,
@@ -122,23 +122,23 @@ BRIDGE = {"leads_per_year": 282195.1194029851, "conversion": 0.28789850232238484
 def test_each_step_on_the_path_to_the_goal_shows_its_math():
     math = explain.bridge_math(BRIDGE, revenue=102.4e6, clinic_count=50, goal=250e6)
     assert math["leads"] == [
-        row("Leads a year", "282,195", "every clinic, the last 11 months scaled to a year"),
+        row("Leads a year", "282,195", "all clinics: the last 11 months, stretched to a full year"),
         row("Conversion when a lead hears back within an hour", "38.1%"),
         row("Conversion today", "28.8%"),
         row("Extra patients a year", "26,324", "(38.1% − 28.8%) × 282,195 leads"),
         row("A year", "$29.7M", "26,324 × $1,128 per new patient")]
     assert math["capacity"] == [
-        row("Afternoon slots a year", "626,400", "every chiropractor who works afternoons × 10 slots × 261 weekdays"),
+        row("Afternoon slots a year", "626,400", "each chiropractor who works afternoons × 10 slots × 261 weekdays"),
         row("Booked today", "462,728", "73.9% of afternoon slots"),
         row("Booked at 85%", "532,440", "85% × 626,400"),
         row("Extra visits a year", "69,712", "532,440 − 462,728"),
         row("A year", "$7.73M", "69,712 × $110.87 per visit")]
     assert math["retention"] == [
-        row("Plans that end a year", "78,052", "finished or dropped, every clinic"),
-        row("Completion at the top 10% of clinics", "55.2%"),
-        row("Completion at the typical clinic", "50.9%"),
-        row("Extra plans finished a year", "3,362", "(55.2% − 50.9%) × 78,052 plans"),
-        row("A year", "$6.43M", "3,362 × $1,912 per finished plan")]
+        row("Care plans that end each year", "78,052", "finished or quit early, all clinics"),
+        row("Plan completion at the best 10% of clinics", "55.2%"),
+        row("Plan completion at the typical clinic", "50.9%"),
+        row("Extra care plans finished each year", "3,362", "(55.2% − 50.9%) × 78,052 care plans"),
+        row("A year", "$6.43M", "3,362 × $1,912 per finished care plan")]
     assert math["new_clinics"] == [
         row("Goal", "$250M"),
         row("Revenue today", "$102M", "visit revenue in the last 12 months, 50 clinics"),
@@ -160,20 +160,20 @@ IMPACT = [
 def test_results_show_how_each_headline_number_was_worked_out():
     math = explain.outcome_math(IMPACT, annual_dropouts=38024.0, avg_visit_revenue=110.87444698630249)
     assert math["lift"] == [
-        row("Came back after agent outreach", "30.0%", "9 of 30 patients"),
-        row("Came back with no outreach", "4.8%", "1 of 21 patients, the holdout group"),
-        row("More patients came back", "25.2 pts", "30.0% − 4.8%")]
+        row("Came back after the agent's message", "30.0%", "9 of 30 patients"),
+        row("Came back with no message", "4.8%", "1 of 21 patients, the holdout group"),
+        row("More patients came back", "25.2 points", "30.0% − 4.8%")]
     assert math["recovered"] == [
-        row("Agent patients who came back", "9"),
-        row("Visits left on their plans", "138", "the visits those 9 patients still had to go"),
+        row("Patients who came back after the agent's message", "9"),
+        row("Visits left on their care plans", "138", "the visits those 9 patients still had to go"),
         row("Visits we count", "96.6", "70% of 138: patients who come back don't all finish"),
-        row("Recovered", "$10.7K", "96.6 × $110.87 per visit")]
+        row("Money won back", "$10.7K", "96.6 × $110.87 per visit")]
     assert math["annualized"] == [
-        row("More patients came back", "25.2 pts", "agent outreach vs no outreach, above"),
-        row("Patients who drop out of a plan in a year", "38,024", "every clinic"),
+        row("More patients came back", "25.2 points", "the agent's message vs no message, from above"),
+        row("Patients who quit a care plan each year", "38,024", "all clinics"),
         row("Extra patients back a year", "9,597", "25.2% × 38,024"),
         row("Value of a patient who comes back", "$1,152",
-            "$15.0K recovered ÷ 13 patients who came back, in all groups"),
+            "$15.0K won back ÷ 13 patients who came back (all groups)"),
         row("A year across the network", "$11.1M", "9,597 × $1,152")]
 
 
@@ -188,7 +188,7 @@ def test_an_agent_that_does_worse_than_nothing_projects_nothing():
               {"arm": "holdout", "patients": 5, "patients_returned": 1, "return_rate": 0.2, "recovered_revenue": 800.0,
                "lift_vs_holdout": 0.0, "annualized_network_revenue": 0.0}]
     math = explain.outcome_math(impact, annual_dropouts=38024.0, avg_visit_revenue=110.87)
-    assert math["lift"][-1] == row("More patients came back", "-20 pts", "0.0% − 20.0%")
+    assert math["lift"][-1] == row("More patients came back", "-20 points", "0.0% − 20.0%")
     assert math["annualized"][2] == row("Extra patients back a year", "0",
-                                        "no more patients came back than with no outreach, so none")
+                                        "no more patients came back than with no message, so none")
     assert math["annualized"][-1]["value"] == "$0"

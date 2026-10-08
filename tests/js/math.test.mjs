@@ -28,8 +28,8 @@ test("clinic math shows problems with money at stake in full and the rest in one
   };
   const html = clinicMath(math);
   assert.match(html, /<h4>Slow lead replies: \$1.14M<\/h4>/);
-  assert.match(html, /<h4>Within normal range: \$0<\/h4>.*Mornings booked gap/s);
-  assert.doesNotMatch(html.split("Within normal range")[1], /A year at stake/);
+  assert.match(html, /<h4>Small differences we ignore: \$0<\/h4>.*Mornings booked gap/s);
+  assert.doesNotMatch(html.split("Small differences we ignore")[1], /A year at stake/);
   assert.match(html, /Total a year at stake/);
 });
 

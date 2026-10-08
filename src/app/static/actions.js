@@ -12,13 +12,13 @@ export function renderActions(step, story, handlers) {
   const generic = controls.generic ?? 0;
   step.innerHTML = `<h3><span class="n">3</span>What we're doing</h3>
     <div class="act-head">
-      <p>${plural(actions.length, "outreach draft")} <span>for staff to approve</span></p>
+      <p>${plural(actions.length, "message")} <span>waiting for staff to approve</span></p>
       <button type="button" class="quiet" id="approve-all" hidden></button>
     </div>
-    ${held || generic ? `<p class="note">${held} kept as a holdout, ${generic} got a generic reminder, picked at random so the agent's impact can be measured.</p>` : ""}
+    ${held || generic ? `<p class="note">To check the agent really helps, other patients were picked at random: ${held} get no message (the holdout group) and ${generic} get a plain reminder.</p>` : ""}
     <div class="cards">${actions.map((a, i) => card(a, i >= FIRST_CARDS)).join("")}</div>
     ${actions.length > FIRST_CARDS ? `<p class="more"><button type="button" class="link" id="show-all">Show all ${actions.length}</button></p>` : ""}
-    ${actions.length ? "" : `<p class="note">The specialist didn't draft any outreach in this run.</p>`}
+    ${actions.length ? "" : `<p class="note">The specialist didn't write any messages this time.</p>`}
     <p class="act-error" role="alert" hidden></p>`;
   step.querySelector("#show-all")?.addEventListener("click", (e) => {
     step.querySelectorAll(".card[hidden]").forEach((c) => { c.hidden = false; });
@@ -33,7 +33,7 @@ function card(a, hidden) {
     <p class="what">${esc(a.intervention)}<span>${esc(a.channel ?? "")}</span></p>
     <p class="who">${esc(who)}</p>
     <p class="message" tabindex="0" title="Click to edit">${esc(a.message ?? "")}</p>
-    ${a.rationale ? `<details><summary>Why this outreach</summary><p>${esc(a.rationale)}</p></details>` : ""}
+    ${a.rationale ? `<details><summary>Why this message</summary><p>${esc(a.rationale)}</p></details>` : ""}
     <div class="decide">${decision(a.status)}</div>
     <p class="card-error" role="alert" hidden></p>
   </article>`;

@@ -45,7 +45,8 @@ so decide from THIS patient's own signals, and do not default to the clinic-wide
 Steps: call get_patient_history first. Use find_open_slots when you offer a time, and
 get_intervention_performance if you want evidence from past runs. Then call queue_action exactly
 once. The message must be warm, under 320 characters, start with "Hi there", contain no names
-and no medical claims. The rationale must cite the specific signals you used."""
+and no medical claims. The rationale is one short sentence a 10-year-old could follow, naming
+the signals you used (no column names)."""
 
 LEADS_SYSTEM = """You are the Leads Specialist for clinic {clinic}.
 Director's brief: {brief}

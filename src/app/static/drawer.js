@@ -4,11 +4,11 @@ import { get } from "./api.js";
 import { esc, plural, runKind, when } from "./format.js";
 
 const LOOP = [
-  ["Observe", "Measures every clinic (bookings, lead replies, finished care plans) and prices each gap in dollars a year."],
-  ["Reason", "The Director picks the clinics with the most at stake and digs into their data with 13 query tools until it can name the cause."],
-  ["Decide", "It records the diagnosis and hands the clinic to the right specialist: retention, leads or capacity."],
-  ["Act", "The specialist reviews each patient or lead and drafts outreach for staff to approve."],
-  ["Measure", "Patients are split at random first, so agent outreach is compared with a generic reminder and with nothing."],
+  ["Observe", "Looks at every clinic: bookings, lead replies, finished care plans. Works out how much money each problem costs a year."],
+  ["Reason", "The Director agent picks the clinics losing the most and digs into their data with 13 tools until it finds the cause."],
+  ["Decide", "It writes down what's wrong and passes the clinic to the right specialist agent: retention, leads or capacity."],
+  ["Act", "The specialist looks at each patient or lead and writes a message for staff to approve."],
+  ["Measure", "Patients are split into groups at random first, so we can compare the agent's messages with a plain reminder and with no message."],
 ];
 
 export function openDrawer(dialog, options) {
@@ -22,7 +22,7 @@ export function openDrawer(dialog, options) {
   const runs = [`<option value="">Latest run for each clinic</option>`,
     ...meta.runs.map((r) => `<option value="${esc(r.run_id)}"${r.run_id === runId ? " selected" : ""}>${esc(runLabel(r))}</option>`)].join("");
   const traces = meta.mlflow_url
-    ? `<a href="${esc(meta.mlflow_url)}" target="_blank" rel="noopener">Every prompt and tool call, in MLflow</a>`
+    ? `<a href="${esc(meta.mlflow_url)}" target="_blank" rel="noopener">Every step the AI took, in MLflow</a>`
     : "Not set up in this workspace";
   body.innerHTML = `<ol class="loop">${LOOP.map(([name, text]) => `<li><b>${name}.</b> ${esc(text)}</li>`).join("")}</ol>
     <dl class="facts">

@@ -36,16 +36,17 @@ KPIS = {
 }
 # What each KPI measures, in plain words (src/sql/observe.sql computes them).
 KPI_MEANING = {
-    "plan_completion_rate": "Of the care plans that ended in the last year, the share the patient finished.",
-    "at_risk_patients": "Patients on a care plan who are well past their next visit (1.5 times their usual gap) "
-                        "and have nothing booked.",
-    "lead_conversion_rate": "Of last year's new leads, the share that became patients. The last 30 days are left "
-                            "out because those leads are still deciding.",
-    "median_response_hours": "How long a new lead usually waits for the clinic's first reply (the median).",
-    "pm_utilization": "Afternoon appointments in the last year ÷ afternoon slots (10 per chiropractor per weekday).",
-    "am_utilization": "Morning appointments in the last year ÷ morning slots (10 per chiropractor per weekday). It "
-                      "can pass 100% when extra patients are squeezed in.",
-    "no_show_rate": "Share of last year's appointments where the patient didn't come and didn't cancel.",
+    "plan_completion_rate": "Out of every care plan that ended last year, how many the patient finished.",
+    "at_risk_patients": "Patients in the middle of a care plan who are late for their next visit and have "
+                        "nothing booked.",
+    "lead_conversion_rate": "Out of every new lead (someone who asked about coming in), how many became "
+                            "patients. The last 30 days are left out because those people are still deciding.",
+    "median_response_hours": "How long a new lead usually waits before the clinic answers.",
+    "pm_utilization": "How full the afternoon schedule was last year. Each chiropractor has 10 slots every "
+                      "weekday afternoon.",
+    "am_utilization": "How full the morning schedule was last year. Each chiropractor has 10 slots every weekday "
+                      "morning. It can go over 100% when extra patients are squeezed in.",
+    "no_show_rate": "Out of every appointment last year, how many the patient missed without cancelling.",
 }
 # The all-clinics table: (key in the payload, clinic_kpis column, network median column)
 TABLE_COLUMNS = (("revenue", "annual_revenue", None),
@@ -57,7 +58,7 @@ TABLE_COLUMNS = (("revenue", "annual_revenue", None),
                  ("quiet", "at_risk_patients", None))
 BRIDGE_LEVERS = (("leads_value", "leads", "Answer every lead within an hour"),
                  ("capacity_value", "capacity", "Fill afternoons to 85%"),
-                 ("retention_value", "retention", "Keep patients on plan like the top clinics"))
+                 ("retention_value", "retention", "Help patients finish their care plan, like the best clinics"))
 
 BRIDGE_SQL = """/* network_bridge */
 WITH ref AS (SELECT as_of FROM {fq}.network_metadata),
@@ -123,10 +124,10 @@ def network(wh: Any, fq: str) -> dict:
     at_stake_math = {
         "rows": [explain.row(c["city"], explain.usd(c["at_stake"]), explain.TITLES.get(c["lever"], "").lower())
                  for c in flagged]
-                + [explain.row("Total a year", explain.usd(at_stake_total),
+                + [explain.row("Total each year", explain.usd(at_stake_total),
                                " + ".join(explain.usd(c["at_stake"]) for c in flagged))],
-        "note": (f"A clinic counts as out of alignment when more than {explain.usd(FLAG_ABOVE)} a year is at "
-                 "stake. Open a clinic to see how its figure was worked out.")}
+        "note": (f"We flag a clinic when it loses more than {explain.usd(FLAG_ABOVE)} a year. Open a clinic to "
+                 "see how its number was worked out.")}
     return {"revenue": revenue, "goal": GOAL, "clinic_count": len(clinics), "flagged_count": len(flagged),
             "at_stake_total": at_stake_total, "flag_above": FLAG_ABOVE, "at_stake_math": at_stake_math,
             "clinics": clinics, "medians": medians, "bridge": bridge, "units": explain.unit_math(first)}

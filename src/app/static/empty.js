@@ -10,8 +10,8 @@ export function renderEmpty(view, network, onPick) {
   const segments = parts.map((p, k) => `<span class="seg k-${esc(p.key)}" style="--k:${k}" data-w="${(p.value / scale) * 100}%" title="${esc(p.label)}: ${money(p.value)}"></span>`).join("");
   const legend = parts.map((p, k) => `<li><span class="swatch k-${esc(p.key)}"></span><span>${esc(p.label)}</span><span class="amount">${k ? "+" : ""}${money(p.value)}</span></li>`).join("");
   view.innerHTML = `<section class="fade-in">
-    <h2 class="headline">${network.flagged_count} of ${network.clinic_count} clinics are out of alignment</h2>
-    <p class="sub">Together they leave <b data-count="${network.at_stake_total}">${money(0)}</b> a year on the table.</p>
+    <h2 class="headline">${network.flagged_count} of ${network.clinic_count} clinics are losing money</h2>
+    <p class="sub">Together they lose <b data-count="${network.at_stake_total}">${money(0)}</b> a year.</p>
     ${network.at_stake_math ? howWeGot(`How we got ${network.at_stake_math.rows.at(-1).value}`, `${receipt(network.at_stake_math.rows)}<p class="note">${esc(network.at_stake_math.note)}</p>`) : ""}
     <div id="summary"></div>
     <div class="bridge">
@@ -19,11 +19,11 @@ export function renderEmpty(view, network, onPick) {
       <div class="bridge-bar" role="img" aria-label="${esc(parts.map((p) => `${p.label} ${money(p.value)}`).join(", "))}">${segments}</div>
       <div class="bridge-scale"><span>$0</span><span>Goal ${money(network.goal)}</span></div>
       <ul class="bridge-legend">${legend}</ul>
-      <p class="note">Each fix is priced across all ${network.clinic_count} clinics from the network's own data. New clinics cover the rest.</p>
-      ${network.bridge[0]?.rows ? howWeGot("How each step is priced", bridgeMath(network)) : ""}
+      <p class="note">We worked out what each fix is worth across all ${network.clinic_count} clinics, using their own numbers. New clinics make up the rest.</p>
+      ${network.bridge[0]?.rows ? howWeGot("How we worked out each step", bridgeMath(network)) : ""}
     </div>
-    <p class="hint">Pick a red vertebra to see what the agent found, or start here:</p>
-    <div class="picks">${flagged.map((c) => `<button type="button" class="pick" data-id="${esc(c.id)}"><b>${esc(c.city)}</b><span>${money(c.at_stake)} a year at stake: ${esc(leverProblem(c.lever))}</span></button>`).join("")}</div>
+    <p class="hint">Click a red bar to see what the agent found, or start here:</p>
+    <div class="picks">${flagged.map((c) => `<button type="button" class="pick" data-id="${esc(c.id)}"><b>${esc(c.city)}</b><span>${money(c.at_stake)} lost each year: ${esc(leverProblem(c.lever))}</span></button>`).join("")}</div>
   </section>`;
   view.querySelectorAll(".pick").forEach((b) => b.addEventListener("click", () => onPick(b.dataset.id)));
   growBars(view);

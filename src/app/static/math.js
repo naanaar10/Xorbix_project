@@ -2,7 +2,7 @@
 // worked out. The server builds the rows (src/app/explain.py) from the same values as the number.
 import { esc } from "./format.js";
 
-const ROUNDING = "Figures are rounded for reading; the app works with the unrounded values.";
+const ROUNDING = "Numbers are rounded to make them easy to read.";
 
 export function receipt(rows, { result = true } = {}) {
   const body = rows.map((r, i) => `<tr${result && i === rows.length - 1 ? ' class="result"' : ""}><th scope="row">${esc(r.label)}</th><td class="num">${esc(r.value)}</td><td class="how">${esc(r.how)}</td></tr>`).join("");
@@ -22,14 +22,14 @@ export function clinicMath(math, units) {
   const normal = math.levers.filter((l) => !(l.value > 0));
   return [
     ...atStake.map((l) => block(`${l.title}: ${l.rows.at(-1).value}`, l.rows) + note(l.note)),
-    normal.length ? block("Within normal range: $0", normal.flatMap((l) => l.rows.slice(0, -1)), { result: false }) : "",
+    normal.length ? block("Small differences we ignore: $0", normal.flatMap((l) => l.rows.slice(0, -1)), { result: false }) : "",
     receipt([math.total]),
-    `<p class="note">A clinic only loses money where it trails the typical clinic (the network median) by more than normal variation: 3 points for plan completion, 2 for lead conversion and no-shows, 10 for bookings. ${ROUNDING}</p>`,
+    `<p class="note">We only count money where a clinic does worse than the typical clinic by more than a little: 3 points for plan completion, 2 for lead conversion and no-shows, 10 for how full the schedule is. Small differences like that happen everywhere, so we ignore them. ${ROUNDING}</p>`,
     units ? unitMath(units) : "",
   ].join("");
 }
 
-export const unitMath = (units) => block("Where the dollar values come from", units, { result: false });
+export const unitMath = (units) => block("Where the dollar amounts come from", units, { result: false });
 
 export function bridgeMath(network) {
   return [
@@ -45,8 +45,8 @@ const signed = (value) => (value.startsWith("-") ? value : `+${value}`);
 export function outcomeMath(math) {
   return [
     block(`More patients came back: ${signed(math.lift.at(-1).value)}`, math.lift),
-    block(`Recovered in this run: ${math.recovered.at(-1).value}`, math.recovered),
+    block(`Money won back this run: ${math.recovered.at(-1).value}`, math.recovered),
     block(`A year across the network: ${math.annualized.at(-1).value}`, math.annualized),
-    `<p class="note">Outcomes are simulated: outreach isn't really sent in this prototype. ${ROUNDING}</p>`,
+    `<p class="note">These results are simulated: the messages aren't really sent in this demo. ${ROUNDING}</p>`,
   ].join("");
 }

@@ -115,7 +115,7 @@ def test_the_hand_off_lights_decide_before_the_specialist_acts():
     log.step({"agent": "director", "name": "assign_specialist",
               "arguments": '{"location_id": "LOC007", "specialist": "retention"}', "result_preview": "{}"})
     assert [e["phase"] if e["type"] == "phase" else e["text"] for e in log.events] == [
-        "decide", "Recorded the diagnosis for LOC007", "Handed LOC007 to the retention specialist",
+        "decide", "Wrote down what's wrong at LOC007", "Handed LOC007 to the retention specialist",
         "act", "Read the visit history of PT1", "The retention specialist finished with LOC007"]
 
 

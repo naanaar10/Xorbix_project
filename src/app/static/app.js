@@ -21,7 +21,7 @@ const live = document.getElementById("live");
 const drawer = document.getElementById("drawer");
 const TABS = ["overview", "clinics", "diagnoses", "outreach", "results"];
 const SLOW_MS = 4000;
-const WAKING = "Waking up the SQL warehouse. The first load can take up to a minute.";
+const WAKING = "Waking up the database. The first load can take up to a minute.";
 
 const state = {
   network: null,      // GET /api/network
@@ -113,9 +113,9 @@ function show(tab, clinic) {
     view.classList.remove("loading");
     renderClinics(view, state.network, openClinic);
   } else if (tab === "diagnoses") {
-    display("the diagnoses", loadRun, (data) => renderDiagnoses(view, data, openClinic));
+    display("the problems", loadRun, (data) => renderDiagnoses(view, data, openClinic));
   } else if (tab === "outreach") {
-    display("the outreach drafts", loadRun, (data) => renderOutreach(view, data, handlers()));
+    display("the messages", loadRun, (data) => renderOutreach(view, data, handlers()));
   } else if (tab === "results") {
     display("the results", () => Promise.all([loadRun(), loadMeta()]),
       ([data, meta]) => renderResults(view, data, meta.assumptions));
@@ -227,7 +227,7 @@ async function boot() {
   }
   const n = state.network;
   document.getElementById("goal").innerHTML = `<b>${money(n.revenue)}</b> today, goal <b>${money(n.goal)}</b>`;
-  document.getElementById("rail-title").innerHTML = `<b>${n.flagged_count} of ${n.clinic_count}</b> clinics out of alignment`;
+  document.getElementById("rail-title").innerHTML = `<b>${n.flagged_count} of ${n.clinic_count}</b> clinics losing money`;
   state.spine = renderSpine(document.getElementById("spine"), n.clinics, openClinic);
   window.addEventListener("hashchange", route);
   route();

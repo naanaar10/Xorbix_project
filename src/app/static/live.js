@@ -46,7 +46,7 @@ export function follow(panel, runId, clinic, options) {
     clearInterval(timer);
     panel.querySelectorAll(".segment").forEach((s) => { s.classList.remove("active"); s.classList.add("done"); });
     const limit = event.status === "SUCCEEDED" ? "" : " The Director stopped at its step limit.";
-    const summary = `Done in ${duration(event.seconds)}. ${plural(event.drafts, "outreach draft")} queued for ${options.cityOf(event.clinic)}.${limit}`;
+    const summary = `Done in ${duration(event.seconds)}. ${plural(event.drafts, "message")} written for ${options.cityOf(event.clinic)}.${limit}`;
     setTimeout(() => collapse(panel, summary), 1200); // let the last segment be seen filling
     options.onDone(event);
   };
