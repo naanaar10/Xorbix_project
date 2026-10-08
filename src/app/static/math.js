@@ -1,6 +1,6 @@
 // "How we got this": the math behind a number, as rows of what it is, its value and how it was
 // worked out. The server builds the rows (src/app/explain.py) from the same values as the number.
-import { esc, money } from "./format.js";
+import { esc } from "./format.js";
 
 const ROUNDING = "Figures are rounded for reading; the app works with the unrounded values.";
 
@@ -33,16 +33,18 @@ export const unitMath = (units) => block("Where the dollar values come from", un
 
 export function bridgeMath(network) {
   return [
-    ...network.bridge.map((b) => block(`${b.label}: +${money(b.value)}`, b.rows)),
+    ...network.bridge.map((b) => block(`${b.label}: +${b.rows.at(-1).value}`, b.rows)),
     unitMath(network.units),
     `<p class="note">${ROUNDING}</p>`,
   ].join("");
 }
 
+const signed = (value) => (value.startsWith("-") ? value : `+${value}`);
+
 // The three Results numbers.
 export function outcomeMath(math) {
   return [
-    block(`More patients came back: +${math.lift.at(-1).value}`, math.lift),
+    block(`More patients came back: ${signed(math.lift.at(-1).value)}`, math.lift),
     block(`Recovered in this run: ${math.recovered.at(-1).value}`, math.recovered),
     block(`A year across the network: ${math.annualized.at(-1).value}`, math.annualized),
     `<p class="note">Outcomes are simulated: outreach isn't really sent in this prototype. ${ROUNDING}</p>`,

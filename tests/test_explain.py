@@ -180,3 +180,15 @@ def test_results_show_how_each_headline_number_was_worked_out():
 def test_results_without_an_agent_arm_have_no_math():
     assert explain.outcome_math([], 38024.0, 110.87) is None
     assert explain.outcome_math(IMPACT[1:], 38024.0, 110.87) is None
+
+
+def test_an_agent_that_does_worse_than_nothing_projects_nothing():
+    impact = [{"arm": "agent", "patients": 4, "patients_returned": 0, "return_rate": 0.0, "recovered_revenue": 0.0,
+               "lift_vs_holdout": -0.2, "annualized_network_revenue": 0.0},
+              {"arm": "holdout", "patients": 5, "patients_returned": 1, "return_rate": 0.2, "recovered_revenue": 800.0,
+               "lift_vs_holdout": 0.0, "annualized_network_revenue": 0.0}]
+    math = explain.outcome_math(impact, annual_dropouts=38024.0, avg_visit_revenue=110.87)
+    assert math["lift"][-1] == row("More patients came back", "-20 pts", "0.0% − 20.0%")
+    assert math["annualized"][2] == row("Extra patients back a year", "0",
+                                        "no more patients came back than with no outreach, so none")
+    assert math["annualized"][-1]["value"] == "$0"

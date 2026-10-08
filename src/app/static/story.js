@@ -30,7 +30,7 @@ function head({ clinic, lever, run, math }) {
     ? `<p class="stake"><b data-count="${clinic.at_stake}">${money(0)}</b> a year at stake: ${esc(leverProblem(lever))}</p>`
     : `<p class="stake ok">In line with the network${clinic.at_stake >= 1000 ? `: ${money(clinic.at_stake)} a year at stake` : ""}</p>`;
   const source = run ? `<p class="source">From the ${runKind(run.trigger)} on ${esc(when(run.started_at))}</p>` : "";
-  const how = math ? howWeGot(`How we got ${money(clinic.at_stake)}`, clinicMath(math, math.units)) : "";
+  const how = math ? howWeGot(`How we got ${math.total.value}`, clinicMath(math, math.units)) : "";
   return `<header class="story-head"><h2>${esc(clinic.city)}<span class="id">${esc(clinic.id)}</span></h2>${stake}${how}${source}</header>`;
 }
 
@@ -71,7 +71,7 @@ function didItWork({ lever, actions, impact, impact_run: measured, impact_math: 
     const projection = agent
       ? `<p class="projection">About <b data-count="${agent.annualized_network_revenue}">${money(0)}</b> a year if used across the network. Simulated outcomes: outreach isn't really sent in this prototype.</p>`
       : "";
-    const how = agent && math ? howWeGot(`How we got ${money(agent.annualized_network_revenue)}`, outcomeMath(math)) : "";
+    const how = agent && math ? howWeGot(`How we got ${math.annualized.at(-1).value}`, outcomeMath(math)) : "";
     body = `${source}${armBars(impact)}${projection}${how}`;
   }
   return `<li class="step"><h3><span class="n">4</span>Did it work</h3>${body}</li>`;

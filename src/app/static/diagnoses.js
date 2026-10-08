@@ -9,7 +9,7 @@ export function renderDiagnoses(view, data, onOpen) {
       <header>
         <h3>${esc(d.city ?? d.location_id)} <span class="id">${esc(d.location_id)}</span></h3>
         <p class="stake">${money(d.at_stake ?? d.revenue_at_stake)} a year at stake: ${esc(leverProblem(d.problem_type))}</p>
-        ${d.math ? howWeGot(`How we got ${money(d.at_stake)}`, clinicMath(d.math)) : ""}
+        ${d.math ? howWeGot(`How we got ${d.math.total.value}`, clinicMath(d.math)) : ""}
       </header>
       <blockquote class="agent-voice">${agentHtml(d.root_cause)}</blockquote>
       <div class="evidence">

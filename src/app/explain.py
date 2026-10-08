@@ -237,7 +237,9 @@ def outcome_math(impact: list[dict], annual_dropouts: float, avg_visit_revenue: 
         "annualized": [
             row("More patients came back", pts(lift), "agent outreach vs no outreach, above"),
             row("Patients who drop out of a plan in a year", count(annual_dropouts), "every clinic"),
-            row("Extra patients back a year", count(extra), f"{pct1(lift)} × {count(annual_dropouts)}"),
+            row("Extra patients back a year", count(extra),
+                f"{pct1(lift)} × {count(annual_dropouts)}" if lift > 0
+                else "no more patients came back than with no outreach, so none"),
             row("Value of a patient who comes back", dollars(per_return),
                 f"{usd(recovered_all)} recovered ÷ {returned_all} patients who came back, in all groups"),
             row("A year across the network", usd(agent["annualized_network_revenue"]),

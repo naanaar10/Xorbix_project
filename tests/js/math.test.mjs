@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { clinicMath, howWeGot, receipt } from "../../src/app/static/math.js";
+import { bridgeMath, clinicMath, howWeGot, outcomeMath, receipt } from "../../src/app/static/math.js";
 
 const row = (label, value, how = "") => ({ label, value, how });
 
@@ -31,4 +31,20 @@ test("clinic math shows problems with money at stake in full and the rest in one
   assert.match(html, /<h4>Within normal range: \$0<\/h4>.*Mornings booked gap/s);
   assert.doesNotMatch(html.split("Within normal range")[1], /A year at stake/);
   assert.match(html, /Total a year at stake/);
+});
+
+test("results math signs the lift once, whichever way it went", () => {
+  const rows = (last) => [row("x", "1"), row("Result", last)];
+  const up = outcomeMath({ lift: rows("25.2 pts"), recovered: rows("$10.7K"), annualized: rows("$11.1M") });
+  const down = outcomeMath({ lift: rows("-20 pts"), recovered: rows("$0"), annualized: rows("$0") });
+  assert.match(up, /More patients came back: \+25.2 pts/);
+  assert.match(down, /More patients came back: -20 pts/);
+});
+
+test("each step on the path is titled with the figure its math ends on", () => {
+  const html = bridgeMath({
+    bridge: [{ key: "capacity", label: "Fill afternoons to 85%", value: 7729279, rows: [row("x", "1"), row("A year", "$7.73M")] }],
+    units: [row("Per visit", "$110.87")],
+  });
+  assert.match(html, /<h4>Fill afternoons to 85%: \+\$7.73M<\/h4>/);
 });

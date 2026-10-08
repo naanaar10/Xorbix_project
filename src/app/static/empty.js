@@ -12,7 +12,7 @@ export function renderEmpty(view, network, onPick) {
   view.innerHTML = `<section class="fade-in">
     <h2 class="headline">${network.flagged_count} of ${network.clinic_count} clinics are out of alignment</h2>
     <p class="sub">Together they leave <b data-count="${network.at_stake_total}">${money(0)}</b> a year on the table.</p>
-    ${network.at_stake_math ? howWeGot(`How we got ${money(network.at_stake_total)}`, `${receipt(network.at_stake_math.rows)}<p class="note">${esc(network.at_stake_math.note)}</p>`) : ""}
+    ${network.at_stake_math ? howWeGot(`How we got ${network.at_stake_math.rows.at(-1).value}`, `${receipt(network.at_stake_math.rows)}<p class="note">${esc(network.at_stake_math.note)}</p>`) : ""}
     <div id="summary"></div>
     <div class="bridge">
       <h3>The path from ${money(network.revenue)} to ${money(network.goal)}</h3>
