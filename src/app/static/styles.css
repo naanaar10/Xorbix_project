@@ -389,7 +389,7 @@ details.math[open] > summary { margin-bottom: 6px; }
 @container (max-width: 560px) {
   .receipt tr { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
   .receipt tr.result { border-top: 1.5px solid var(--ink); border-bottom: 0; }
-  .receipt th, .receipt td, .receipt .result > * { width: auto; padding: 0; border: 0; }
+  .receipt th, .receipt td, .receipt .num, .receipt .result > * { width: auto; padding: 0; border: 0; }
   .receipt .how { grid-column: 1 / -1; font-size: 12.5px; }
 }
 .meanings dt { font-weight: 600; margin-top: 8px; }
