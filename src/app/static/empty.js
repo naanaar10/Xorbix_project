@@ -1,5 +1,6 @@
 // The overview when no clinic is picked: the headline, the path to $250M, and where to start.
-import { agentHtml, esc, leverProblem, money, runKind, when } from "./format.js";
+import { findingsHtml } from "./findings.js";
+import { esc, leverProblem, money } from "./format.js";
 import { bridgeMath, howWeGot, receipt } from "./math.js";
 import { countAll, growBars } from "./motion.js";
 import { defaults, levers, plan } from "./whatif.js";
@@ -33,13 +34,11 @@ export function renderEmpty(view, network, onPick) {
   countAll(view, money);
 }
 
-// The Manager's own summary of a run, filled in when the run has loaded.
-export function renderSummary(el, run) {
-  if (!el || !run?.summary) return;
-  el.innerHTML = `<figure class="summary fade-in">
-    <div class="agent-voice">${agentHtml(run.summary)}</div>
-    <figcaption>The Manager's summary of the ${runKind(run.trigger)} on ${esc(when(run.started_at))}</figcaption>
-  </figure>`;
+// What the Manager found in the run, filled in when the run has loaded.
+export function renderSummary(el, data, onPick) {
+  if (!el) return;
+  el.innerHTML = findingsHtml(data);
+  el.querySelectorAll("[data-open]").forEach((b) => b.addEventListener("click", () => onPick(b.dataset.open)));
 }
 
 // Try your own plan: one slider per step; the path bar, its amounts and the new clinics needed

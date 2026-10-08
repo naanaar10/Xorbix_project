@@ -244,6 +244,27 @@ blockquote.agent-voice { margin: 0; padding-left: 16px; border-left: 3px solid v
 
 /* Overview summary */
 .summary { margin: 26px 0 0; max-width: 70ch; }
+/* What the Manager found: one card per finding; red edge = money a clinic loses, indigo = money the whole network can add. */
+.findings { margin-top: 30px; }
+.findings h3 { font-size: 20px; font-weight: 700; }
+.findings .source { font-size: 13px; color: var(--slate); margin-top: 2px; }
+.finding-list { display: grid; gap: 12px; margin: 14px 0 10px; }
+.finding { background: var(--paper); border: 1px solid var(--line); border-left: 4px solid var(--raspberry); border-radius: 10px; padding: 16px 20px; }
+.finding.network { border-left-color: var(--indigo); }
+.finding header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; }
+.finding h4 { font-size: 18px; font-weight: 700; margin: 0; }
+.finding .problem { font-size: 14px; color: var(--slate); }
+.finding .worth { font-size: 14px; color: var(--raspberry); white-space: nowrap; }
+.finding .worth b { font-size: 22px; font-weight: 700; }
+.finding.network .worth { color: var(--indigo); }
+.finding .cause { font-family: var(--serif); font-size: 17px; line-height: 1.45; margin-top: 10px; max-width: 62ch; }
+.proof { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 5px; }
+.proof li { position: relative; padding-left: 16px; font-size: 14px; line-height: 1.4; }
+.proof li::before { content: ""; position: absolute; left: 2px; top: 0.5em; width: 6px; height: 6px; border-radius: 50%; background: var(--teal); }
+.proof b { font-weight: 700; color: var(--ink); }
+.finding .fix { margin-top: 12px; font-size: 14.5px; line-height: 1.45; max-width: 70ch; }
+.finding .fix span { display: inline-block; margin-right: 8px; padding: 1px 8px; border-radius: 999px; background: var(--teal); color: #fff; font-size: 12px; font-weight: 600; }
+.finding .go { margin-top: 8px; font-size: 14px; }
 .summary .agent-voice { padding-left: 16px; border-left: 3px solid var(--indigo); font-size: 17px; }
 .summary ul { margin: 0; padding-left: 18px; display: grid; gap: 10px; }
 .agent-voice p { margin: 0; }

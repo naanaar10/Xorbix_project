@@ -73,8 +73,17 @@ export function slotLabel(slot) {
   return `${day}, ${+h % 12 || 12}:${mi} ${+h < 12 ? "AM" : "PM"}${rest}`;
 }
 
-// The Manager sometimes writes Markdown. Everything is escaped first; then only **bold** and
-// "- " bullets become markup. A line that is only bold text is a heading and is dropped.
+// Bold every figure in already-escaped text ("36", "66%", "$645,118", "$3.2 M") so the numbers are
+// easy to spot. Digits inside ids (PRV0041) and escapes (&#39;) are left alone.
+export const boldNumbers = (html) =>
+  String(html ?? "").replace(/(?<![A-Za-z0-9.#&$])\$?\d+(?:[,.]\d+)*(?:%|[ \u202f]?[MK]\b)?/g, "<b>$&</b>");
+
+// The agent writes its evidence as facts separated by semicolons; show up to three.
+export const proofItems = (evidence) =>
+  String(evidence ?? "").split(";").map((f) => f.trim()).filter(Boolean).slice(0, 3);
+
+// The Manager sometimes writes Markdown. Everything is escaped first; then only **bold**, *italics*
+// and "- " bullets become markup. A line that is only bold text is a heading and is dropped.
 export function agentHtml(text) {
   const out = [];
   let list = [];
@@ -83,7 +92,7 @@ export function agentHtml(text) {
     list = [];
   };
   for (const raw of String(text ?? "").split("\n")) {
-    const line = esc(raw.trim()).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+    const line = esc(raw.trim()).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/(^|[^*\w])\*(\S[^*]*?)\*(?!\*)/g, "$1<i>$2</i>");
     if (!line || /^<b>[^<]*<\/b>:?$/.test(line)) {
       flush();
     } else if (/^[-*•] /.test(line)) {
