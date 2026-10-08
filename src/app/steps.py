@@ -9,12 +9,14 @@ _PHASE_OF = {
     **dict.fromkeys(["get_network_kpis", "compare_clinic_to_network", "get_dropoff_by_visit_number",
                      "get_cancellation_reasons", "get_provider_breakdown", "get_lead_response_stats",
                      "get_capacity_by_daypart"], "reason"),
-    **dict.fromkeys(["record_diagnosis", "assign_specialist"], "decide"),
+    **dict.fromkeys(["record_diagnosis", "assign_specialist", "record_network_finding"], "decide"),
     **dict.fromkeys(["find_at_risk_patients", "get_patient_history", "find_open_slots", "queue_action",
-                     "get_stale_leads", "find_reactivation_candidates", "get_intervention_performance"],
+                     "get_stale_leads", "find_reactivation_candidates", "get_intervention_performance",
+                     "get_marketing_channels", "price_budget_shift", "queue_budget_shift"],
                     "act"),
 }
-WRITE_TOOLS = {"record_diagnosis", "assign_specialist", "queue_action"}
+WRITE_TOOLS = {"record_diagnosis", "assign_specialist", "queue_action", "queue_budget_shift", "record_network_finding"}
+NETWORK = "NETWORK"  # location_id of the whole-network specialists' work
 
 # Tool name -> (sentence using the tool's arguments, sentence when an argument is missing)
 PHRASES = {
@@ -37,6 +39,10 @@ PHRASES = {
     "get_stale_leads": ("Found leads still waiting at {clinic_id}", "Found leads still waiting"),
     "find_reactivation_candidates": ("Found patients who stopped coming to {clinic_id}", "Found patients who stopped coming"),
     "get_intervention_performance": ("Checked which messages worked before", "Checked which messages worked before"),
+    "get_marketing_channels": ("Read what each marketing channel costs", "Read what each marketing channel costs"),
+    "price_budget_shift": ("Priced moving money from {from_channel} to {to_channel}", "Priced a budget move"),
+    "queue_budget_shift": ("Queued a budget move: {from_channel} to {to_channel}", "Queued a budget move"),
+    "record_network_finding": ("Wrote down what's wrong across the network", "Wrote down what's wrong across the network"),
     "reminder": ("Reminded to finish the hand-off", "Reminded to finish the hand-off"),
 }
 
@@ -83,6 +89,10 @@ def step_view(step: dict) -> dict | None:
             "phase": phase_of(name)}
 
 
+def _place(clinic: str) -> str:
+    return "the whole network" if clinic == NETWORK else clinic
+
+
 class Narrator:
     """Lines for a run's steps in the order things happened. The loop records assign_specialist
     only after the specialist has finished (the specialist runs inside that tool call), so the
@@ -102,11 +112,11 @@ class Narrator:
             self._diagnosed = args["location_id"]
         if agent and not agent.startswith("director"):
             specialist, _, suffix = agent.partition(":")
-            clinic = suffix if suffix.startswith("LOC") else self._diagnosed
+            clinic = suffix if suffix.startswith("LOC") or suffix == NETWORK else self._diagnosed
             if clinic and (clinic, specialist) not in self._handed:
                 self._handed.add((clinic, specialist))
                 self._open.append((clinic, specialist))
-                out.append({"agent": "Director", "text": f"Handed {clinic} to the {specialist} specialist",
+                out.append({"agent": "Director", "text": f"Handed {_place(clinic)} to the {specialist} specialist",
                             "write": True, "phase": "decide"})
         if name == "assign_specialist":
             clinic = args.get("location_id") or (step.get("arguments") or "").strip()
@@ -114,7 +124,7 @@ class Narrator:
                          if k[0] == clinic and args.get("specialist") in (None, k[1])), None)
             if done:
                 self._open.remove(done)
-                return out + [{"agent": "Director", "text": f"The {done[1]} specialist finished with {done[0]}",
+                return out + [{"agent": "Director", "text": f"The {done[1]} specialist finished with {_place(done[0])}",
                                "write": False, "phase": None}]
         view = step_view(step)
         return out + [view] if view else out

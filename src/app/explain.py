@@ -12,6 +12,8 @@ WEEKDAYS = 261
 SHARE_OF_REMAINING_VISITS_KEPT = 0.7  # same as chiro_agent.measure
 # Gaps smaller than these are normal clinic-to-clinic variation and price at $0 (src/sql/observe.sql).
 TOLERANCE = {"completion": 0.03, "conversion": 0.02, "am": 0.10, "pm": 0.10, "no_show": 0.02}
+# The fixes on the path to the goal, in order (BRIDGE_SQL in queries.py has a <key>_value for each).
+BRIDGE_KEYS = ("leads", "capacity", "retention", "marketing")
 TITLES = {"retention": "Patients quit their care plan", "leads": "Slow lead replies", "capacity": "Empty chairs"}
 
 
@@ -170,7 +172,7 @@ def bridge_math(b: dict, revenue: float, clinic_count: int, goal: float) -> dict
     target = slots * 0.85
     plans, top, typical = _f(b, "closed_plans"), _f(b, "top_decile_completion"), _f(b, "median_completion")
     extra_plans = plans * (top - typical)
-    values = [max(0.0, _f(b, key)) for key in ("leads_value", "capacity_value", "retention_value")]
+    values = [max(0.0, _f(b, f"{key}_value")) for key in BRIDGE_KEYS]
     fixes = sum(values)
     remainder = max(0.0, goal - revenue - fixes)
     per_clinic = revenue / clinic_count if clinic_count else 0.0
@@ -195,14 +197,36 @@ def bridge_math(b: dict, revenue: float, clinic_count: int, goal: float) -> dict
             row("Plan completion at the typical clinic", pct1(typical)),
             row("Extra care plans finished each year", count(extra_plans), f"({pct1(top)} − {pct1(typical)}) × {count(plans)} care plans"),
             row("A year", usd(values[2]), f"{count(extra_plans)} × {dollars(b.get('completion_value'))} per finished care plan")],
+        "marketing": _marketing_rows(b, values[3]),
         "new_clinics": [
             row("Goal", usd(goal)),
-            row("Revenue today", usd(revenue), f"visit revenue in the last 12 months, {clinic_count} clinics"),
-            row("From the three fixes", usd(fixes), " + ".join(usd(v) for v in values)),
+            row("Revenue today", usd(revenue), f"revenue from visits in the last 12 months, {clinic_count} clinics"),
+            row("From the fixes", usd(fixes), " + ".join(usd(v) for v in values)),
             row("Still to find", usd(remainder), f"{usd(goal)} − {usd(revenue)} − {usd(fixes)}"),
             row("Revenue of a typical clinic", usd(per_clinic), f"{usd(revenue)} ÷ {clinic_count} clinics"),
             row("New clinics", str(new_clinics), f"{usd(remainder)} ÷ {usd(per_clinic)}, rounded up")],
     }
+
+
+def _marketing_rows(b: dict, value: float) -> list[dict]:
+    costly, cheap = b.get("costly_channel") or "the most expensive channel", b.get("cheap_channel") or "the cheapest channel"
+    costly_cpp = _f(b, "costly_spend") / _f(b, "costly_new_patients") if _f(b, "costly_new_patients") else 0.0
+    cheap_cpp = _f(b, "cheap_spend") / _f(b, "cheap_new_patients") if _f(b, "cheap_new_patients") else 0.0
+    moved = _f(b, "marketing_moved")
+    lost = moved / costly_cpp if costly_cpp else 0.0
+    won = moved / (2 * cheap_cpp) if cheap_cpp else 0.0
+    return [
+        row("Most expensive channel", costly, f"{dollars(costly_cpp)} per new patient: {usd(b.get('costly_spend'))} "
+            f"spent last year ÷ {count(b.get('costly_new_patients'))} new patients"),
+        row("Cheapest channel", cheap, f"{dollars(cheap_cpp)} per new patient: {usd(b.get('cheap_spend'))} ÷ "
+            f"{count(b.get('cheap_new_patients'))} new patients"),
+        row("Money moved each year", usd(moved),
+            f"a quarter of {costly}'s budget, or what {cheap} spends now if that's less"),
+        row(f"New patients lost from {costly}", count(lost), f"{usd(moved)} ÷ {dollars(costly_cpp)}"),
+        row(f"New patients won through {cheap}", count(won),
+            f"{usd(moved)} ÷ ({dollars(cheap_cpp)} × 2): moved money works half as well"),
+        row("A year", usd(value), f"({count(won)} − {count(lost)}) × {dollars(b.get('revenue_per_patient'))} per new patient"),
+    ]
 
 
 def outcome_math(impact: list[dict], annual_dropouts: float, avg_visit_revenue: float) -> dict | None:

@@ -119,6 +119,9 @@ button:disabled { cursor: progress; }
 .k-leads { --c: var(--indigo); }
 .k-capacity { --c: var(--indigo-mid); }
 .k-retention { --c: var(--indigo-light); }
+.k-marketing { --c: var(--teal); }
+.k-membership { --c: #6FA59D; }
+.k-referrals { --c: #A9CBC5; }
 .k-new_clinics { --c: repeating-linear-gradient(135deg, #C5D0CD 0 5px, transparent 5px 10px); }
 .seg, .swatch { background: var(--c); }
 .k-new_clinics.seg, .k-new_clinics.swatch { outline: 1px solid var(--line); outline-offset: -1px; }

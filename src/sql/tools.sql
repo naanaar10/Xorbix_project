@@ -310,3 +310,42 @@ RETURN
   GROUP BY o.intervention, COALESCE(o.signal, 'none')
   HAVING COUNT(*) >= 3
   ORDER BY return_rate DESC;
+
+-- @@
+CREATE OR REPLACE FUNCTION {fq}.get_marketing_channels()
+RETURNS TABLE (channel STRING, yearly_spend DOUBLE, leads BIGINT, new_patients BIGINT,
+  cost_per_new_patient DOUBLE, share_of_budget DOUBLE)
+COMMENT 'Marketing for the whole network over the last 12 months, one row per channel: money spent, leads, new patients, cost per new patient (cheapest first) and share of the budget. Use it to find money that would win more new patients in another channel.'
+RETURN
+  WITH ref AS (SELECT as_of FROM {fq}.network_metadata),
+  ch AS (
+    SELECT c.channel, SUM(c.budget) AS spend, SUM(c.leads_generated) AS leads, SUM(c.conversions) AS conv
+    FROM {fq}.marketing_campaigns c CROSS JOIN ref
+    WHERE c.start_date > date_sub(ref.as_of, 365) AND c.start_date <= ref.as_of
+    GROUP BY c.channel)
+  SELECT channel, ROUND(spend), leads, conv, ROUND(spend / conv, 2), ROUND(spend / SUM(spend) OVER (), 3)
+  FROM ch
+  ORDER BY spend / conv;
+
+-- @@
+CREATE OR REPLACE FUNCTION {fq}.price_budget_shift(
+  from_channel STRING COMMENT 'Channel to take money from, e.g. Paid Search',
+  to_channel STRING COMMENT 'Channel to give the money to, e.g. Referral Program',
+  amount DOUBLE COMMENT 'Dollars a year to move')
+RETURNS TABLE (from_spend DOUBLE, to_spend DOUBLE, patients_lost DOUBLE, patients_gained DOUBLE,
+  extra_patients DOUBLE, revenue_per_patient DOUBLE, yearly_revenue DOUBLE)
+COMMENT 'Prices moving marketing money from one channel to another, using the last 12 months. Moved money is assumed to win new patients at half the rate the receiving channel does today (each extra dollar in one channel works less well). Returns new patients lost and won, and the extra yearly revenue. A channel can lose at most a quarter of its budget and can at most double.'
+RETURN
+  WITH ref AS (SELECT as_of FROM {fq}.network_metadata),
+  ch AS (
+    SELECT c.channel, SUM(c.budget) AS spend, SUM(c.conversions) AS conv
+    FROM {fq}.marketing_campaigns c CROSS JOIN ref
+    WHERE c.start_date > date_sub(ref.as_of, 365) AND c.start_date <= ref.as_of
+    GROUP BY c.channel),
+  f AS (SELECT spend, conv FROM ch WHERE channel = from_channel),
+  t AS (SELECT spend, conv FROM ch WHERE channel = to_channel),
+  k AS (SELECT MAX(revenue_per_patient) AS rpp FROM {fq}.clinic_kpis)
+  SELECT f.spend, t.spend, amount / (f.spend / f.conv), amount / (2 * t.spend / t.conv),
+    amount / (2 * t.spend / t.conv) - amount / (f.spend / f.conv), k.rpp,
+    (amount / (2 * t.spend / t.conv) - amount / (f.spend / f.conv)) * k.rpp
+  FROM f CROSS JOIN t CROSS JOIN k;

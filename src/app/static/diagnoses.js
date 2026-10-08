@@ -7,7 +7,7 @@ export function renderDiagnoses(view, data, onOpen) {
   const { run, diagnoses } = data;
   const cards = diagnoses.map((d) => `<article class="dx">
       <header>
-        <h3>${esc(d.city ?? d.location_id)} <span class="id">${esc(d.location_id)}</span></h3>
+        <h3>${esc(d.city ?? d.location_id)}${d.location_id === "NETWORK" ? "" : ` <span class="id">${esc(d.location_id)}</span>`}</h3>
         <p class="stake">${money(d.at_stake ?? d.revenue_at_stake)} lost each year: ${esc(leverProblem(d.problem_type))}</p>
         ${d.math ? howWeGot(`How we got ${d.math.total.value}`, clinicMath(d.math)) : ""}
       </header>
@@ -17,7 +17,7 @@ export function renderDiagnoses(view, data, onOpen) {
         <p><span class="k">What to do</span>${esc(d.recommended_fix)}</p>
       </div>
       <p class="handoff">Passed to the ${esc(d.specialist)} specialist agent</p>
-      <p><button type="button" class="link" data-open="${esc(d.location_id)}">Open ${esc(d.city ?? d.location_id)}</button></p>
+      ${d.location_id === "NETWORK" ? '<p class="note">Its moves are in Messages.</p>' : `<p><button type="button" class="link" data-open="${esc(d.location_id)}">Open ${esc(d.city ?? d.location_id)}</button></p>`}
     </article>`).join("");
   const body = !run
     ? '<p class="notice">No runs yet. Run the Director to see the problems it finds here.</p>'

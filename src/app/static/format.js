@@ -41,7 +41,13 @@ export function kpiScale(kpi) {
 
 export const isWorse = (kpi) => (kpi.better === "lower" ? kpi.value > kpi.median : kpi.value < kpi.median);
 
-const PROBLEMS = { retention: "patients stop coming back", leads: "leads wait too long for a reply", capacity: "chairs sit empty" };
+const PROBLEMS = {
+  retention: "patients stop coming back",
+  leads: "leads wait too long for a reply",
+  capacity: "chairs sit empty",
+  marketing: "marketing money goes where it wins the fewest patients",
+  loyalty: "patients who finish care aren't asked to stay or bring a friend",
+};
 export const leverProblem = (lever) => PROBLEMS[lever] ?? "revenue is leaking";
 
 export const runKind = (trigger) => (trigger === "app" ? "live run" : "nightly run");

@@ -84,3 +84,21 @@ def test_hand_offs_for_clinic_named_specialists_and_code_assigned_ones():
 
 def test_a_hand_off_without_specialist_steps_reads_as_before():
     assert lines([DIAGNOSE, ASSIGN])[-1] == ("Director", "Handed LOC007 to the retention specialist", True)
+
+
+def test_the_whole_network_is_handed_to_the_marketing_specialist():
+    channels = {"agent": "marketing:NETWORK", "name": "get_marketing_channels", "arguments": "{}", "result_preview": "[]"}
+    move = {"agent": "marketing:NETWORK", "name": "queue_budget_shift",
+            "arguments": '{"from_channel": "Paid Search", "to_channel": "Referral Program", "amount": 600000}',
+            "result_preview": '{"queued": "ACT-1"}'}
+    finding = {"agent": "marketing:NETWORK", "name": "record_network_finding", "arguments": "{}", "result_preview": "{}"}
+    done = {"agent": "director", "kind": "auto", "name": "assign_specialist",
+            "arguments": '{"location_id": "NETWORK", "specialist": "marketing"}', "result_preview": "{}"}
+    assert lines([DIAGNOSE, channels, move, finding, done]) == [
+        ("Director", "Wrote down what's wrong at LOC007", True),
+        ("Director", "Handed the whole network to the marketing specialist", True),
+        ("Marketing", "Read what each marketing channel costs", False),
+        ("Marketing", "Queued a budget move: Paid Search to Referral Program", True),
+        ("Marketing", "Wrote down what's wrong across the network", True),
+        ("Director", "The marketing specialist finished with the whole network", False)]
+    assert phase_of("queue_budget_shift") == "act" and phase_of("record_network_finding") == "decide"

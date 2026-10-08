@@ -31,6 +31,7 @@ class RunContext:
     specialist_runs: dict[str, str] = field(default_factory=dict)
     offered_slots: set[str] = field(default_factory=set)
     actions_queued: int = 0
+    queued_rows: list[dict] = field(default_factory=list)
 
     def table(self, name: str) -> str:
         return f"{self.settings.fq}.{name}"
@@ -40,6 +41,7 @@ class RunContext:
 
     def insert_actions(self, rows: list[dict]) -> None:
         self.wh.insert(self.table("action_queue"), rows)
+        self.queued_rows.extend(rows)
         self.actions_queued += sum(1 for r in rows if r["arm"] != "holdout")
 
 

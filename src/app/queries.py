@@ -11,6 +11,7 @@ from typing import Any
 from app import explain
 from app.steps import Narrator
 
+NETWORK = "NETWORK"     # location_id of the whole-network specialists' findings and moves
 FLAG_ABOVE = 150_000   # dollars a year at stake before a clinic counts as out of alignment
 GOAL = 250e6
 STATUSES = ("Pending", "Approved", "Rejected")
@@ -58,7 +59,8 @@ TABLE_COLUMNS = (("revenue", "annual_revenue", None),
                  ("quiet", "at_risk_patients", None))
 BRIDGE_LEVERS = (("leads_value", "leads", "Answer every lead within an hour"),
                  ("capacity_value", "capacity", "Fill afternoons to 85%"),
-                 ("retention_value", "retention", "Help patients finish their care plan, like the best clinics"))
+                 ("retention_value", "retention", "Help patients finish their care plan, like the best clinics"),
+                 ("marketing_value", "marketing", "Move marketing money to the cheapest channel"))
 
 BRIDGE_SQL = """/* network_bridge */
 WITH ref AS (SELECT as_of FROM {fq}.network_metadata),
@@ -74,14 +76,30 @@ k AS (
          MAX(med_completion) AS median_completion,
          percentile_approx(plan_completion_rate, 0.9) AS top_decile_completion,
          SUM(pm_capacity) AS pm_capacity, SUM(pm_capacity * pm_utilization) AS pm_booked
-  FROM {fq}.clinic_kpis)
+  FROM {fq}.clinic_kpis),
+channels AS (
+  SELECT c.channel, SUM(c.budget) AS spend, SUM(c.conversions) AS new_patients
+  FROM {fq}.marketing_campaigns c CROSS JOIN ref
+  WHERE c.start_date > date_sub(ref.as_of, 365) AND c.start_date <= ref.as_of
+  GROUP BY c.channel),
+mk AS (
+  SELECT max_by(channel, spend / new_patients) AS costly_channel, max_by(spend, spend / new_patients) AS costly_spend,
+         max_by(new_patients, spend / new_patients) AS costly_new_patients,
+         min_by(channel, spend / new_patients) AS cheap_channel, min_by(spend, spend / new_patients) AS cheap_spend,
+         min_by(new_patients, spend / new_patients) AS cheap_new_patients
+  FROM channels),
+moved AS (SELECT LEAST(0.25 * costly_spend, cheap_spend) AS marketing_moved FROM mk)
 -- Each lever fixed across the whole network: every lead answered within an hour, afternoons
--- booked to 85%, and plan completion raised from the median to the top-decile clinic's rate.
+-- booked to 85%, plan completion raised from the median to the top-decile clinic's rate, and a
+-- quarter of the costliest marketing channel's budget (at most what the cheapest spends) moved to
+-- the cheapest, where it wins patients at half that channel's rate (price_budget_shift's rule).
 SELECT *,
        GREATEST(0, leads_per_year * (conversion_within_hour - conversion) * revenue_per_patient) AS leads_value,
        GREATEST(0, pm_capacity * 0.85 - pm_booked) * visit_revenue AS capacity_value,
-       GREATEST(0, closed_plans * (top_decile_completion - median_completion) * completion_value) AS retention_value
-FROM lead_rates CROSS JOIN k"""
+       GREATEST(0, closed_plans * (top_decile_completion - median_completion) * completion_value) AS retention_value,
+       GREATEST(0, (marketing_moved / (2 * cheap_spend / cheap_new_patients)
+                    - marketing_moved / (costly_spend / costly_new_patients)) * revenue_per_patient) AS marketing_value
+FROM lead_rates CROSS JOIN k CROSS JOIN mk CROSS JOIN moved"""
 
 
 def utc_iso(value: Any) -> str | None:
@@ -244,7 +262,7 @@ def run_overview(wh: Any, fq: str, run_id: str | None = None) -> dict:
             arms[r["arm"]] = arms.get(r["arm"], 0) + 1
     # The clinic's own figure, the same one its page shows, with the math behind it.
     diagnoses = [{**{f: r.get(f) for f in ("location_id", "city", "problem_type", "root_cause", "evidence",
-                                            "recommended_fix", "specialist")},
+                                            "recommended_fix", "specialist")}, "city": _city(r),
                   "at_stake": r["total_revenue_at_stake"] if r.get("total_revenue_at_stake") is not None
                   else r.get("revenue_at_stake"),
                   "math": explain.clinic_math(r) if r.get("total_revenue_at_stake") is not None else None}
@@ -253,13 +271,17 @@ def run_overview(wh: Any, fq: str, run_id: str | None = None) -> dict:
     return {
         "run": run,
         "diagnoses": diagnoses,
-        "actions": [{"location_id": r["location_id"], "city": r.get("city"), "specialist": r.get("specialist"),
+        "actions": [{"location_id": r["location_id"], "city": _city(r), "specialist": r.get("specialist"),
                      **{f: r.get(f) for f in ACTION_FIELDS}} for r in action_rows if r["arm"] == "agent"],
         "controls": controls,
         "impact": impact,
         "impact_math": explain.outcome_math(impact, inputs.get("annual_dropouts") or 0.0,
                                             inputs.get("avg_visit_revenue") or 0.0),
     }
+
+
+def _city(row: dict) -> str | None:
+    return "Whole network" if row.get("location_id") == NETWORK else row.get("city")
 
 
 def _choose_impact(rows: list[dict], story_run: str) -> tuple[list[dict], dict | None]:

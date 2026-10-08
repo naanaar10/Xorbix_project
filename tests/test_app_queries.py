@@ -42,9 +42,9 @@ def test_network_counts_flagged_clinics_and_builds_the_bridge():
     assert net["revenue"] == 6e6 and net["goal"] == 250e6 and net["clinic_count"] == 3
     assert net["flagged_count"] == 2 and net["at_stake_total"] == 1_568_000.0
     assert [c["flagged"] for c in net["clinics"]] == [False, True, True]
-    assert [b["key"] for b in net["bridge"]] == ["leads", "capacity", "retention", "new_clinics"]
-    assert net["bridge"][2]["value"] == 0.0
-    assert {k: v for k, v in net["bridge"][3].items() if k != "rows"} == {
+    assert [b["key"] for b in net["bridge"]] == ["leads", "capacity", "retention", "marketing", "new_clinics"]
+    assert net["bridge"][2]["value"] == 0.0 and net["bridge"][3]["value"] == 0.0
+    assert {k: v for k, v in net["bridge"][-1].items() if k != "rows"} == {
         "key": "new_clinics", "value": 206e6, "label": "Open about 103 new clinics"}
 
 
@@ -53,7 +53,7 @@ def test_network_never_shows_a_negative_remainder():
         "network_clinics": [{"location_id": "LOC001", "city": "Des Moines", "annual_revenue": 2e6,
                              "total_revenue_at_stake": 0.0, "largest_lever": "leads"}],
         "network_bridge": [{"leads_value": 300e6, "capacity_value": 0.0, "retention_value": 0.0}]})
-    new_clinics = queries.network(wh, FQ)["bridge"][3]
+    new_clinics = queries.network(wh, FQ)["bridge"][-1]
     assert (new_clinics["value"], new_clinics["label"]) == (0.0, "No new clinics needed")
 
 
@@ -294,7 +294,7 @@ def test_network_explains_its_numbers():
     assert "$150K" in net["at_stake_math"]["note"]
     bridge = explain.bridge_math(BRIDGE, revenue=4e6, clinic_count=2, goal=250e6)
     assert [b["rows"] for b in net["bridge"]] == [bridge["leads"], bridge["capacity"], bridge["retention"],
-                                                 bridge["new_clinics"]]
+                                                 bridge["marketing"], bridge["new_clinics"]]
     assert net["units"] == explain.unit_math(MILWAUKEE)
 
 
@@ -328,3 +328,18 @@ def test_run_overview_explains_each_diagnosis_and_the_results():
     assert set(dx) == {"location_id", "city", "problem_type", "root_cause", "evidence", "recommended_fix",
                        "specialist", "at_stake", "math"}
     assert data["impact_math"] == explain.outcome_math(IMPACT, 38024.0, 110.87444698630249)
+
+
+def test_whole_network_findings_and_moves_are_labelled_whole_network():
+    wh = FakeWarehouse({
+        "run_pick": [RUN],
+        "run_diagnoses": [{"location_id": "NETWORK", "city": None, "problem_type": "marketing",
+                           "root_cause": "Paid Search costs the most", "evidence": "$329 vs $68",
+                           "recommended_fix": "Move money", "specialist": "marketing", "revenue_at_stake": 5.1e6}],
+        "run_actions": [{"action_id": "M1", "location_id": "NETWORK", "city": None, "specialist": "marketing",
+                         "arm": "agent", "target_type": "channel", "target_id": "Paid Search to Referral Program",
+                         "intervention": "Budget shift", "status": "Pending", "message": "Move $600K"}]})
+    data = queries.run_overview(wh, FQ)
+    assert data["diagnoses"][0]["city"] == "Whole network" and data["diagnoses"][0]["at_stake"] == 5.1e6
+    assert data["diagnoses"][0]["math"] is None
+    assert data["actions"][0]["city"] == "Whole network"
