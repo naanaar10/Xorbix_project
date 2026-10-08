@@ -86,8 +86,8 @@ def queue_action_tool(ctx: RunContext, *, location_id: str, specialist: str, tar
         if slot and slot in ctx.offered_slots:
             return {"error": f"Slot {slot} was already offered to another patient. Pick a different slot."}
         info = targets[target]
-        row = action_row(ctx, location_id=location_id, specialist=specialist, target_type=target_type,
-                         target_id=target, arm="agent", intervention=args["intervention"],
+        row = action_row(ctx, location_id=info.get("location_id") or location_id, specialist=specialist,
+                         target_type=target_type, target_id=target, arm="agent", intervention=args["intervention"],
                          care_plan_id=info.get("care_plan_id"), signal=info.get("signal"),
                          channel=args.get("channel"), message=(args.get("message") or "")[:600],
                          offered_slot=slot, rationale=(args.get("rationale") or "")[:600],

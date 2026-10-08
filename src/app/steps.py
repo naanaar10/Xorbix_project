@@ -12,7 +12,8 @@ _PHASE_OF = {
     **dict.fromkeys(["record_diagnosis", "assign_specialist", "record_network_finding"], "decide"),
     **dict.fromkeys(["find_at_risk_patients", "get_patient_history", "find_open_slots", "queue_action",
                      "get_stale_leads", "find_reactivation_candidates", "get_intervention_performance",
-                     "get_marketing_channels", "price_budget_shift", "queue_budget_shift"],
+                     "get_marketing_channels", "price_budget_shift", "queue_budget_shift",
+                     "get_loyalty_stats", "find_recent_finishers"],
                     "act"),
 }
 WRITE_TOOLS = {"record_diagnosis", "assign_specialist", "queue_action", "queue_budget_shift", "record_network_finding"}
@@ -42,6 +43,10 @@ PHRASES = {
     "get_marketing_channels": ("Read what each marketing channel costs", "Read what each marketing channel costs"),
     "price_budget_shift": ("Priced moving money from {from_channel} to {to_channel}", "Priced a budget move"),
     "queue_budget_shift": ("Queued a budget move: {from_channel} to {to_channel}", "Queued a budget move"),
+    "get_loyalty_stats": ("Compared every clinic's Wellness plans and referrals with the best clinics",
+                          "Compared every clinic's Wellness plans and referrals with the best clinics"),
+    "find_recent_finishers": ("Found patients who just finished a care plan at {clinic_id}",
+                              "Found patients who just finished a care plan"),
     "record_network_finding": ("Wrote down what's wrong across the network", "Wrote down what's wrong across the network"),
     "reminder": ("Reminded to finish the hand-off", "Reminded to finish the hand-off"),
 }

@@ -42,7 +42,8 @@ def test_network_counts_flagged_clinics_and_builds_the_bridge():
     assert net["revenue"] == 6e6 and net["goal"] == 250e6 and net["clinic_count"] == 3
     assert net["flagged_count"] == 2 and net["at_stake_total"] == 1_568_000.0
     assert [c["flagged"] for c in net["clinics"]] == [False, True, True]
-    assert [b["key"] for b in net["bridge"]] == ["leads", "capacity", "retention", "marketing", "new_clinics"]
+    assert [b["key"] for b in net["bridge"]] == ["leads", "capacity", "retention", "marketing", "membership",
+                                                 "referrals", "new_clinics"]
     assert net["bridge"][2]["value"] == 0.0 and net["bridge"][3]["value"] == 0.0
     assert {k: v for k, v in net["bridge"][-1].items() if k != "rows"} == {
         "key": "new_clinics", "value": 206e6, "label": "Open about 103 new clinics"}
@@ -294,8 +295,10 @@ def test_network_explains_its_numbers():
     assert "$150K" in net["at_stake_math"]["note"]
     bridge = explain.bridge_math(BRIDGE, revenue=4e6, clinic_count=2, goal=250e6)
     assert [b["rows"] for b in net["bridge"]] == [bridge["leads"], bridge["capacity"], bridge["retention"],
-                                                 bridge["marketing"], bridge["new_clinics"]]
+                                                 bridge["marketing"], bridge["membership"], bridge["referrals"],
+                                                 bridge["new_clinics"]]
     assert net["units"] == explain.unit_math(MILWAUKEE)
+    assert net["inputs"] == BRIDGE  # the what-if planner recomputes the path from these
 
 
 def test_clinic_story_explains_its_stake_and_its_results():

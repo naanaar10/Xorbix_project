@@ -349,3 +349,76 @@ RETURN
     amount / (2 * t.spend / t.conv) - amount / (f.spend / f.conv), k.rpp,
     (amount / (2 * t.spend / t.conv) - amount / (f.spend / f.conv)) * k.rpp
   FROM f CROSS JOIN t CROSS JOIN k;
+
+-- @@
+CREATE OR REPLACE FUNCTION {fq}.get_loyalty_stats()
+RETURNS TABLE (location_id STRING, city STRING, finishers_last_year BIGINT, wellness_uptake DOUBLE,
+  referral_rate DOUBLE, extra_wellness_plans DOUBLE, extra_referrers DOUBLE, yearly_value DOUBLE)
+COMMENT 'Patients who finished a care plan in the last year, by clinic: the share who then started a Wellness plan, the share who referred someone, how many more would do each if the clinic matched the best 10% of clinics, and what that is worth a year. The first rows are the typical clinic (TYPICAL) and the best 10% (TOP_10_PERCENT); then clinics, furthest behind first.'
+RETURN
+  WITH ref AS (SELECT as_of FROM {fq}.network_metadata),
+  finishers AS (
+    SELECT cp.location_id, cp.patient_id, cp.last_visit_date
+    FROM {fq}.care_plans cp CROSS JOIN ref
+    WHERE cp.status = 'Completed' AND cp.plan_type <> 'Wellness' AND cp.last_visit_date > date_sub(ref.as_of, 365)),
+  wellness AS (SELECT patient_id, MIN(start_date) AS started FROM {fq}.care_plans WHERE plan_type = 'Wellness'
+               GROUP BY patient_id),
+  referrers AS (SELECT referring_patient_id AS patient_id, COUNT(*) AS n FROM {fq}.referrals GROUP BY referring_patient_id),
+  per AS (
+    SELECT f.location_id, COUNT(*) AS finishers,
+           AVG(CASE WHEN w.started >= date_sub(f.last_visit_date, 30) THEN 1D ELSE 0D END) AS uptake,
+           AVG(CASE WHEN r.n > 0 THEN 1D ELSE 0D END) AS referral_rate
+    FROM finishers f LEFT JOIN wellness w ON f.patient_id = w.patient_id
+    LEFT JOIN referrers r ON f.patient_id = r.patient_id
+    GROUP BY f.location_id),
+  top AS (SELECT percentile_approx(uptake, 0.5) AS med_uptake, percentile_approx(referral_rate, 0.5) AS med_referral,
+                 percentile_approx(uptake, 0.9) AS top_uptake, percentile_approx(referral_rate, 0.9) AS top_referral,
+                 CAST(percentile_approx(finishers, 0.5) AS BIGINT) AS med_finishers FROM per),
+  v AS (SELECT (SELECT AVG(visits_completed) FROM {fq}.care_plans WHERE plan_type = 'Wellness' AND status = 'Completed')
+                 * (SELECT MAX(avg_visit_revenue) FROM {fq}.clinic_kpis) AS plan_value,
+               (SELECT COUNT(*) / COUNT(DISTINCT referring_patient_id) FROM {fq}.referrals)
+                 * (SELECT AVG(CAST(converted_flag AS DOUBLE)) FROM {fq}.leads WHERE source = 'Referral')
+                 * (SELECT MAX(revenue_per_patient) FROM {fq}.clinic_kpis) AS referrer_value),
+  clinics AS (
+    SELECT p.location_id, l.city, p.finishers, ROUND(p.uptake, 3) AS uptake, ROUND(p.referral_rate, 3) AS referral_rate,
+           ROUND(GREATEST(0, t.top_uptake - p.uptake) * p.finishers, 1) AS extra_plans,
+           ROUND(GREATEST(0, t.top_referral - p.referral_rate) * p.finishers, 1) AS extra_referrers,
+           ROUND(GREATEST(0, t.top_uptake - p.uptake) * p.finishers * v.plan_value
+                 + GREATEST(0, t.top_referral - p.referral_rate) * p.finishers * v.referrer_value) AS yearly_value
+    FROM per p JOIN {fq}.locations l ON p.location_id = l.location_id CROSS JOIN top t CROSS JOIN v)
+  SELECT 'TYPICAL', 'Typical clinic', med_finishers, ROUND(med_uptake, 3), ROUND(med_referral, 3), 0D, 0D, 0D FROM top
+  UNION ALL
+  SELECT 'TOP_10_PERCENT', 'Best 10% of clinics', NULL, ROUND(top_uptake, 3), ROUND(top_referral, 3), 0D, 0D, 0D FROM top
+  UNION ALL
+  SELECT * FROM (SELECT * FROM clinics ORDER BY yearly_value DESC);
+
+-- @@
+CREATE OR REPLACE FUNCTION {fq}.find_recent_finishers(
+  clinic_id STRING COMMENT 'Clinic id, e.g. LOC007',
+  max_patients INT DEFAULT 6 COMMENT 'How many patients to return')
+RETURNS TABLE (patient_id STRING, care_plan_id STRING, plan_type STRING, visits_completed INT,
+  days_since_finished INT, payment_type STRING, age_band STRING, referrals_made BIGINT, lifetime_visit_count INT)
+COMMENT 'Patients at a clinic who finished a care plan in the last 60 days and have not started a Wellness plan, most recent first: the plan they finished, how they pay, their age band and how many people they have referred so far.'
+RETURN
+  WITH ref AS (SELECT as_of FROM {fq}.network_metadata),
+  wellness AS (SELECT DISTINCT patient_id FROM {fq}.care_plans WHERE plan_type = 'Wellness'),
+  referrers AS (SELECT referring_patient_id AS patient_id, COUNT(*) AS n FROM {fq}.referrals GROUP BY referring_patient_id),
+  done AS (
+    SELECT cp.patient_id, cp.care_plan_id, cp.plan_type, cp.visits_completed,
+           datediff(ref.as_of, cp.last_visit_date) AS days_since_finished, cp.payment_type,
+           ROW_NUMBER() OVER (PARTITION BY cp.patient_id ORDER BY cp.last_visit_date DESC) AS rn
+    FROM {fq}.care_plans cp CROSS JOIN ref
+    LEFT ANTI JOIN wellness w ON cp.patient_id = w.patient_id
+    WHERE cp.location_id = clinic_id AND cp.status = 'Completed' AND cp.plan_type <> 'Wellness'
+      AND cp.last_visit_date > date_sub(ref.as_of, 60))
+  SELECT patient_id, care_plan_id, plan_type, visits_completed, days_since_finished, payment_type, age_band,
+         referrals_made, lifetime_visit_count
+  FROM (
+    SELECT d.patient_id, d.care_plan_id, d.plan_type, d.visits_completed, d.days_since_finished, d.payment_type,
+           p.age_band, COALESCE(r.n, 0) AS referrals_made, p.lifetime_visit_count,
+           ROW_NUMBER() OVER (ORDER BY d.days_since_finished, d.patient_id) AS pick
+    FROM done d JOIN {fq}.patients p ON d.patient_id = p.patient_id
+    LEFT JOIN referrers r ON d.patient_id = r.patient_id
+    WHERE d.rn = 1)
+  WHERE pick <= max_patients
+  ORDER BY pick;

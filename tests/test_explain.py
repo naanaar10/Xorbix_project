@@ -119,7 +119,12 @@ BRIDGE = {"leads_per_year": 282195.1194029851, "conversion": 0.28789850232238484
           "capacity_value": 7729279.448309119, "retention_value": 6425889.008176902,
           "costly_channel": "Paid Search", "costly_spend": 5544594.0, "costly_new_patients": 16846,
           "cheap_channel": "Referral Program", "cheap_spend": 645118.0, "cheap_new_patients": 9536,
-          "marketing_moved": 645118.0, "marketing_value": 3167737.28}
+          "marketing_moved": 645118.0, "marketing_value": 3167737.28,
+          "finishers": 35328, "top_uptake": 0.37547892720306514, "best_uptake_clinic": "Des Moines",
+          "best_uptake": 0.5651629072681704, "extra_wellness_plans": 1598.5440613026822, "wellness_visits": 12.0,
+          "membership_value": 2126852.27, "top_referral": 0.42456608811748997, "extra_referrers": 917.9799732977302,
+          "referrals_per_referrer": 1.5865735597524202, "referral_conversion": 0.37349751955920707,
+          "referrals_value": 613680.0}
 
 
 def test_each_step_on_the_path_to_the_goal_shows_its_math():
@@ -150,13 +155,26 @@ def test_each_step_on_the_path_to_the_goal_shows_its_math():
         row("New patients lost from Paid Search", "1,960", "$645K ÷ $329"),
         row("New patients won through Referral Program", "4,768", "$645K ÷ ($68 × 2): moved money works half as well"),
         row("A year", "$3.17M", "(4,768 − 1,960) × $1,128 per new patient")]
+    assert math["membership"] == [
+        row("Patients who finish a care plan each year", "35,328", "all clinics, not counting Wellness plans"),
+        row("Start a Wellness plan at the best 10% of clinics", "37.5%", "the very best, Des Moines, reaches 56.5%"),
+        row("Extra Wellness plans each year", "1,599", "every clinic below 37.5% brought up to it"),
+        row("Value of a Wellness plan", "$1,330", "12 visits × $110.87"),
+        row("A year", "$2.13M", "1,599 × $1,330")]
+    assert math["referrals"] == [
+        row("Patients who finish a care plan each year", "35,328", "all clinics, not counting Wellness plans"),
+        row("Refer someone at the best 10% of clinics", "42.5%"),
+        row("Extra patients who refer someone each year", "918", "every clinic below 42.5% brought up to it"),
+        row("People each of them refers", "1.6", "the average over every referral"),
+        row("Referred people who become patients", "37.3%"),
+        row("A year", "$614K", "918 × 1.6 × 37.3% × $1,128 per new patient")]
     assert math["new_clinics"] == [
         row("Goal", "$250M"),
         row("Revenue today", "$102M", "revenue from visits in the last 12 months, 50 clinics"),
-        row("From the fixes", "$47.0M", "$29.7M + $7.73M + $6.43M + $3.17M"),
-        row("Still to find", "$101M", "$250M − $102M − $47.0M"),
+        row("From the fixes", "$49.8M", "$29.7M + $7.73M + $6.43M + $3.17M + $2.13M + $614K"),
+        row("Still to find", "$97.8M", "$250M − $102M − $49.8M"),
         row("Revenue of a typical clinic", "$2.05M", "$102M ÷ 50 clinics"),
-        row("New clinics", "50", "$101M ÷ $2.05M, rounded up")]
+        row("New clinics", "48", "$97.8M ÷ $2.05M, rounded up")]
 
 
 IMPACT = [

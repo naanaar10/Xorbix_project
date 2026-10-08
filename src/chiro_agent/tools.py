@@ -103,5 +103,5 @@ UC_TOOL_NAMES = [
     "get_cancellation_reasons", "get_provider_breakdown", "get_lead_response_stats",
     "get_capacity_by_daypart", "find_at_risk_patients", "get_patient_history", "find_open_slots",
     "get_stale_leads", "find_reactivation_candidates", "get_intervention_performance",
-    "get_marketing_channels", "price_budget_shift",
+    "get_marketing_channels", "price_budget_shift", "get_loyalty_stats", "find_recent_finishers",
 ]

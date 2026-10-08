@@ -60,7 +60,9 @@ TABLE_COLUMNS = (("revenue", "annual_revenue", None),
 BRIDGE_LEVERS = (("leads_value", "leads", "Answer every lead within an hour"),
                  ("capacity_value", "capacity", "Fill afternoons to 85%"),
                  ("retention_value", "retention", "Help patients finish their care plan, like the best clinics"),
-                 ("marketing_value", "marketing", "Move marketing money to the cheapest channel"))
+                 ("marketing_value", "marketing", "Move marketing money to the cheapest channel"),
+                 ("membership_value", "membership", "Offer a Wellness plan when care ends, like the best clinics"),
+                 ("referrals_value", "referrals", "Ask patients who finish care to bring a friend"))
 
 BRIDGE_SQL = """/* network_bridge */
 WITH ref AS (SELECT as_of FROM {fq}.network_metadata),
@@ -88,18 +90,54 @@ mk AS (
          min_by(channel, spend / new_patients) AS cheap_channel, min_by(spend, spend / new_patients) AS cheap_spend,
          min_by(new_patients, spend / new_patients) AS cheap_new_patients
   FROM channels),
-moved AS (SELECT LEAST(0.25 * costly_spend, cheap_spend) AS marketing_moved FROM mk)
+moved AS (SELECT LEAST(0.25 * costly_spend, cheap_spend) AS marketing_moved FROM mk),
+-- Patients who finished a (non-Wellness) care plan in the last year, by clinic: how many moved onto
+-- a Wellness plan, and how many referred someone (get_loyalty_stats uses the same rules).
+finishers AS (
+  SELECT cp.location_id, cp.patient_id, cp.last_visit_date
+  FROM {fq}.care_plans cp CROSS JOIN ref
+  WHERE cp.status = 'Completed' AND cp.plan_type <> 'Wellness' AND cp.last_visit_date > date_sub(ref.as_of, 365)),
+wellness AS (SELECT patient_id, MIN(start_date) AS started FROM {fq}.care_plans WHERE plan_type = 'Wellness'
+             GROUP BY patient_id),
+referrers AS (SELECT referring_patient_id AS patient_id, COUNT(*) AS n FROM {fq}.referrals GROUP BY referring_patient_id),
+loyalty AS (
+  SELECT f.location_id, COUNT(*) AS finishers,
+         AVG(CASE WHEN w.started >= date_sub(f.last_visit_date, 30) THEN 1D ELSE 0D END) AS uptake,
+         AVG(CASE WHEN r.n > 0 THEN 1D ELSE 0D END) AS referral_rate
+  FROM finishers f LEFT JOIN wellness w ON f.patient_id = w.patient_id
+  LEFT JOIN referrers r ON f.patient_id = r.patient_id
+  GROUP BY f.location_id),
+loyalty_top AS (
+  SELECT percentile_approx(uptake, 0.9) AS top_uptake, percentile_approx(referral_rate, 0.9) AS top_referral,
+         max_by(location_id, uptake) AS best_uptake_id, MAX(uptake) AS best_uptake FROM loyalty),
+loyalty_sum AS (
+  SELECT SUM(l.finishers) AS finishers, MAX(t.top_uptake) AS top_uptake, MAX(t.top_referral) AS top_referral,
+         MAX(t.best_uptake) AS best_uptake,
+         SUM(GREATEST(0, t.top_uptake - l.uptake) * l.finishers) AS extra_wellness_plans,
+         SUM(GREATEST(0, t.top_referral - l.referral_rate) * l.finishers) AS extra_referrers
+  FROM loyalty l CROSS JOIN loyalty_top t),
+best_clinic AS (SELECT l.city AS best_uptake_clinic FROM loyalty_top t JOIN {fq}.locations l
+                ON l.location_id = t.best_uptake_id),
+loyalty_values AS (
+  SELECT (SELECT AVG(visits_completed) FROM {fq}.care_plans WHERE plan_type = 'Wellness' AND status = 'Completed')
+           AS wellness_visits,
+         (SELECT COUNT(*) / COUNT(DISTINCT referring_patient_id) FROM {fq}.referrals) AS referrals_per_referrer,
+         (SELECT AVG(CAST(converted_flag AS DOUBLE)) FROM {fq}.leads WHERE source = 'Referral') AS referral_conversion)
 -- Each lever fixed across the whole network: every lead answered within an hour, afternoons
 -- booked to 85%, plan completion raised from the median to the top-decile clinic's rate, and a
 -- quarter of the costliest marketing channel's budget (at most what the cheapest spends) moved to
--- the cheapest, where it wins patients at half that channel's rate (price_budget_shift's rule).
+-- the cheapest, where it wins patients at half that channel's rate (price_budget_shift's rule); and
+-- every clinic below the top-decile clinic's Wellness uptake and referral rate brought up to it.
 SELECT *,
        GREATEST(0, leads_per_year * (conversion_within_hour - conversion) * revenue_per_patient) AS leads_value,
        GREATEST(0, pm_capacity * 0.85 - pm_booked) * visit_revenue AS capacity_value,
        GREATEST(0, closed_plans * (top_decile_completion - median_completion) * completion_value) AS retention_value,
        GREATEST(0, (marketing_moved / (2 * cheap_spend / cheap_new_patients)
-                    - marketing_moved / (costly_spend / costly_new_patients)) * revenue_per_patient) AS marketing_value
-FROM lead_rates CROSS JOIN k CROSS JOIN mk CROSS JOIN moved"""
+                    - marketing_moved / (costly_spend / costly_new_patients)) * revenue_per_patient) AS marketing_value,
+       extra_wellness_plans * wellness_visits * visit_revenue AS membership_value,
+       extra_referrers * referrals_per_referrer * referral_conversion * revenue_per_patient AS referrals_value
+FROM lead_rates CROSS JOIN k CROSS JOIN mk CROSS JOIN moved CROSS JOIN loyalty_sum CROSS JOIN best_clinic
+     CROSS JOIN loyalty_values"""
 
 
 def utc_iso(value: Any) -> str | None:
@@ -148,7 +186,8 @@ def network(wh: Any, fq: str) -> dict:
                  "see how its number was worked out.")}
     return {"revenue": revenue, "goal": GOAL, "clinic_count": len(clinics), "flagged_count": len(flagged),
             "at_stake_total": at_stake_total, "flag_above": FLAG_ABOVE, "at_stake_math": at_stake_math,
-            "clinics": clinics, "medians": medians, "bridge": bridge, "units": explain.unit_math(first)}
+            "clinics": clinics, "medians": medians, "bridge": bridge, "units": explain.unit_math(first),
+            "inputs": values}
 
 
 def clinic_story(wh: Any, fq: str, clinic_id: str, run_id: str | None = None) -> dict:

@@ -13,7 +13,7 @@ SHARE_OF_REMAINING_VISITS_KEPT = 0.7  # same as chiro_agent.measure
 # Gaps smaller than these are normal clinic-to-clinic variation and price at $0 (src/sql/observe.sql).
 TOLERANCE = {"completion": 0.03, "conversion": 0.02, "am": 0.10, "pm": 0.10, "no_show": 0.02}
 # The fixes on the path to the goal, in order (BRIDGE_SQL in queries.py has a <key>_value for each).
-BRIDGE_KEYS = ("leads", "capacity", "retention", "marketing")
+BRIDGE_KEYS = ("leads", "capacity", "retention", "marketing", "membership", "referrals")
 TITLES = {"retention": "Patients quit their care plan", "leads": "Slow lead replies", "capacity": "Empty chairs"}
 
 
@@ -198,6 +198,8 @@ def bridge_math(b: dict, revenue: float, clinic_count: int, goal: float) -> dict
             row("Extra care plans finished each year", count(extra_plans), f"({pct1(top)} − {pct1(typical)}) × {count(plans)} care plans"),
             row("A year", usd(values[2]), f"{count(extra_plans)} × {dollars(b.get('completion_value'))} per finished care plan")],
         "marketing": _marketing_rows(b, values[3]),
+        "membership": _membership_rows(b, values[4]),
+        "referrals": _referral_rows(b, values[5]),
         "new_clinics": [
             row("Goal", usd(goal)),
             row("Revenue today", usd(revenue), f"revenue from visits in the last 12 months, {clinic_count} clinics"),
@@ -226,6 +228,39 @@ def _marketing_rows(b: dict, value: float) -> list[dict]:
         row(f"New patients won through {cheap}", count(won),
             f"{usd(moved)} ÷ ({dollars(cheap_cpp)} × 2): moved money works half as well"),
         row("A year", usd(value), f"({count(won)} − {count(lost)}) × {dollars(b.get('revenue_per_patient'))} per new patient"),
+    ]
+
+
+def _finishers_row(b: dict) -> dict:
+    return row("Patients who finish a care plan each year", count(b.get("finishers")), "all clinics, not counting Wellness plans")
+
+
+def _membership_rows(b: dict, value: float) -> list[dict]:
+    plan_value = _f(b, "wellness_visits") * _f(b, "visit_revenue")
+    best = (f"the very best, {b['best_uptake_clinic']}, reaches {pct1(b.get('best_uptake'))}"
+            if b.get("best_uptake_clinic") else "")
+    return [
+        _finishers_row(b),
+        row("Start a Wellness plan at the best 10% of clinics", pct1(b.get("top_uptake")), best),
+        row("Extra Wellness plans each year", count(b.get("extra_wellness_plans")),
+            f"every clinic below {pct1(b.get('top_uptake'))} brought up to it"),
+        row("Value of a Wellness plan", dollars(plan_value),
+            f"{num1(_f(b, 'wellness_visits'))} visits × {cents(b.get('visit_revenue'))}"),
+        row("A year", usd(value), f"{count(b.get('extra_wellness_plans'))} × {dollars(plan_value)}"),
+    ]
+
+
+def _referral_rows(b: dict, value: float) -> list[dict]:
+    extra, per = _f(b, "extra_referrers"), _f(b, "referrals_per_referrer")
+    return [
+        _finishers_row(b),
+        row("Refer someone at the best 10% of clinics", pct1(b.get("top_referral"))),
+        row("Extra patients who refer someone each year", count(extra),
+            f"every clinic below {pct1(b.get('top_referral'))} brought up to it"),
+        row("People each of them refers", num1(per), "the average over every referral"),
+        row("Referred people who become patients", pct1(b.get("referral_conversion"))),
+        row("A year", usd(value), f"{count(extra)} × {num1(per)} × {pct1(b.get('referral_conversion'))} × "
+            f"{dollars(b.get('revenue_per_patient'))} per new patient"),
     ]
 
 

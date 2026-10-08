@@ -1,7 +1,8 @@
 """The whole-network specialists: their write tools price every move with a tool and enforce caps."""
 from chiro_agent.config import Settings
 from chiro_agent.context import RunContext
-from chiro_agent.network_specialists import NETWORK, budget_shift_tool, network_finding_tool
+from chiro_agent.context import queue_action_tool
+from chiro_agent.network_specialists import NETWORK, budget_shift_tool, loyalty_targets, network_finding_tool
 from chiro_agent.tools import Tool, ToolRegistry
 
 CHANNELS = {"Paid Search": (5_544_594.0, 16_846), "Referral Program": (645_118.0, 9_536), "SEO": (857_431.0, 6_480),
@@ -96,3 +97,45 @@ def test_the_director_hands_the_network_over_and_survives_a_failing_specialist(m
         ("assign_specialist", '{"location_id": "NETWORK", "specialist": "marketing"}'),
         ("assign_specialist", '{"location_id": "NETWORK", "specialist": "loyalty"}')]
     assert "endpoint timed out" in ctx.steps[1]["result_preview"]
+
+
+STATS = [{"location_id": "TYPICAL", "city": "Typical clinic", "yearly_value": 0.0},
+         {"location_id": "TOP_10_PERCENT", "city": "Best 10% of clinics", "yearly_value": 0.0},
+         {"location_id": "LOC015", "city": "Springfield", "yearly_value": 133_642.0},
+         {"location_id": "LOC024", "city": "Cincinnati", "yearly_value": 139_402.0},
+         {"location_id": "LOC023", "city": "Columbus", "yearly_value": 117_907.0}]
+
+
+def loyalty_ctx():
+    ctx = make_ctx()
+    ctx.uc_tools.add(Tool("get_loyalty_stats", "", {}, lambda args: STATS))
+    ctx.uc_tools.add(Tool("find_recent_finishers", "", {}, lambda args: [
+        {"patient_id": f"{args['clinic_id']}-P{i}", "care_plan_id": f"CP{i}", "plan_type": "Corrective"}
+        for i in range(args["max_patients"])]))
+    return ctx
+
+
+def test_loyalty_works_on_the_clinics_furthest_behind():
+    stats, behind, patients, value = loyalty_targets(loyalty_ctx(), clinics=2, per_clinic=3)
+    assert [c["city"] for c in behind] == ["Cincinnati", "Springfield"]
+    assert [p["patient_id"] for p in patients] == ["LOC024-P0", "LOC024-P1", "LOC024-P2",
+                                                   "LOC015-P0", "LOC015-P1", "LOC015-P2"]
+    assert patients[0]["location_id"] == "LOC024" and value == 390_951.0
+
+
+def test_each_loyalty_message_is_filed_under_the_patients_own_clinic():
+    ctx = loyalty_ctx()
+    queue = queue_action_tool(ctx, location_id=NETWORK, specialist="loyalty", target_type="patient",
+                              interventions=["Wellness plan offer", "Referral ask"],
+                              targets={"PT1": {"location_id": "LOC024", "care_plan_id": "CP1", "signal": "Corrective"}},
+                              value_of=lambda info: 300.0)
+    out = queue.run({"target_id": "PT1", "intervention": "Wellness plan offer", "channel": "SMS",
+                     "message": "Hi there, keep feeling good with our Wellness plan.", "rationale": "Long plan."})
+    assert out["status"] == "Pending staff approval"
+    assert ctx.wh.rows["action_queue"][0]["location_id"] == "LOC024"
+
+
+def test_a_finding_can_carry_the_value_the_tools_worked_out():
+    ctx = make_ctx()
+    network_finding_tool(ctx, "loyalty", value=390_951.0).run({"root_cause": "x", "evidence": "y", "recommended_fix": "z"})
+    assert ctx.wh.rows["clinic_diagnoses"][0]["revenue_at_stake"] == 390_951.0

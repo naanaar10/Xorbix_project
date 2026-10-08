@@ -3,7 +3,9 @@ goes) and loyalty (patients who just finished a care plan). The Director hands t
 after its clinic reviews. As everywhere, tools compute the numbers; the agent decides and writes."""
 from __future__ import annotations
 
-from chiro_agent.context import RunContext, action_row, now
+import json
+
+from chiro_agent.context import RunContext, action_row, now, queue_action_tool
 from chiro_agent.loop import run_agent
 from chiro_agent.tools import Tool
 
@@ -29,6 +31,28 @@ Steps:
 4. Reply with one sentence summing up what you queued.
 
 The message in each move is a short note to the marketing manager (under 320 characters).
+{PLAIN_WORDS}"""
+
+
+LOYALTY_INTERVENTIONS = ["Wellness plan offer", "Referral ask", "Wellness plan offer + referral ask"]
+LOYALTY_SYSTEM = f"""You are the Loyalty Specialist for a network of 50 chiropractic clinics.
+When a patient finishes a care plan they feel better and like the clinic. That is the best moment to
+offer a Wellness plan (regular visits to stay well) and to ask them to bring a friend or family member.
+The best clinics do this well; most do not.
+
+Steps:
+1. Call get_loyalty_stats to compare clinics with the best 10% (Wellness uptake and referral rate).
+2. The user message lists patients who just finished a care plan at the clinics furthest behind.
+   For EACH patient, call queue_action once and choose from their own details:
+   - Wellness plan offer: patients who will likely need ongoing care, for example a long
+     Corrective plan, many visits, older age bands, or a Package Plan they already like.
+   - Referral ask: patients who already referred someone, or who finished a short plan quickly.
+   - Wellness plan offer + referral ask: when both clearly fit.
+   Messages: warm, under 320 characters, start with "Hi there", no names, no medical claims,
+   no prices. A referral ask invites them to bring a friend or family member.
+3. Call record_network_finding once: what is going wrong, two or three facts with numbers (name the
+   best clinic), and what every clinic should do when a care plan ends.
+4. Reply with one sentence summing up what you queued.
 {PLAIN_WORDS}"""
 
 
@@ -92,15 +116,17 @@ def budget_shift_tool(ctx: RunContext) -> Tool:
         run=run)
 
 
-def network_finding_tool(ctx: RunContext, problem_type: str) -> Tool:
-    """Save what a network specialist found, worth the yearly value of everything it queued."""
+def network_finding_tool(ctx: RunContext, problem_type: str, value: float | None = None) -> Tool:
+    """Save what a network specialist found. It is worth `value` a year when a tool worked that out,
+    otherwise the yearly value of everything the specialist queued."""
 
     def run(args: dict) -> dict:
-        value = sum(r["expected_value"] or 0 for r in ctx.queued_rows if r["specialist"] == problem_type)
+        worth = value if value is not None else sum(
+            r["expected_value"] or 0 for r in ctx.queued_rows if r["specialist"] == problem_type)
         ctx.wh.insert(ctx.table("clinic_diagnoses"), [{
             "run_id": ctx.run_id, "location_id": NETWORK, "problem_type": problem_type,
             "root_cause": (args.get("root_cause") or "")[:1000], "evidence": (args.get("evidence") or "")[:2000],
-            "revenue_at_stake": round(float(value), 2), "specialist": problem_type,
+            "revenue_at_stake": round(float(worth), 2), "specialist": problem_type,
             "recommended_fix": (args.get("recommended_fix") or "")[:1000], "created_at": now()}])
         return {"recorded": NETWORK}
 
@@ -124,4 +150,34 @@ def run_marketing(ctx: RunContext) -> dict:
     return {"specialist": "marketing", "summary": result.final_text[:500]}
 
 
-NETWORK_SPECIALISTS = {"marketing": run_marketing}
+def loyalty_targets(ctx: RunContext, clinics: int = 2, per_clinic: int = 4):
+    """The clinics with the most to gain and their patients who just finished a care plan, plus what
+    bringing every clinic up to the best 10% is worth a year."""
+    stats = ctx.uc_tools.fetch("get_loyalty_stats", {})
+    clinic_rows = [r for r in stats if str(r["location_id"]).startswith("LOC")]
+    behind = sorted(clinic_rows, key=lambda r: -(r["yearly_value"] or 0))[:clinics]
+    patients = [{**p, "location_id": c["location_id"], "city": c["city"]}
+                for c in behind
+                for p in ctx.uc_tools.fetch("find_recent_finishers",
+                                            {"clinic_id": c["location_id"], "max_patients": per_clinic})]
+    return stats, behind, patients, sum(r["yearly_value"] or 0 for r in clinic_rows)
+
+
+def run_loyalty(ctx: RunContext) -> dict:
+    stats, behind, patients, value = loyalty_targets(ctx)
+    targets = {p["patient_id"]: {"location_id": p["location_id"], "care_plan_id": p["care_plan_id"],
+                                 "signal": p["plan_type"]} for p in patients}
+    queue = queue_action_tool(ctx, location_id=NETWORK, specialist="loyalty", target_type="patient",
+                              interventions=LOYALTY_INTERVENTIONS, targets=targets,
+                              value_of=lambda info: 0.0)
+    tools = ctx.uc_tools.subset(["get_loyalty_stats"])
+    tools.add(queue)
+    tools.add(network_finding_tool(ctx, "loyalty", value=value))
+    user = ("Clinics furthest behind: " + ", ".join(f"{c['city']} ({c['location_id']})" for c in behind)
+            + "\nPatients who just finished a care plan there:\n" + json.dumps(patients, default=str))
+    result = run_agent(ctx.client, ctx.settings.llm_endpoint, f"loyalty:{NETWORK}", LOYALTY_SYSTEM, user, tools,
+                       max_steps=len(patients) + 6, on_step=ctx.add_step)
+    return {"specialist": "loyalty", "summary": result.final_text[:500]}
+
+
+NETWORK_SPECIALISTS = {"marketing": run_marketing, "loyalty": run_loyalty}
