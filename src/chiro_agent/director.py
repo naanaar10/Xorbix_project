@@ -107,7 +107,7 @@ def run_network_specialists(ctx: RunContext) -> str:
         try:
             out = run(ctx)
             preview = out.get("summary", "")
-            lines += f"\n- **{name.capitalize()} (whole network)**: {preview}" if preview else ""
+            lines += f"\n\n**{name.capitalize()} (whole network)**: {preview}" if preview else ""
         except Exception as e:  # noqa: BLE001 - the clinic work is already saved
             preview = f"Failed: {type(e).__name__}: {e}"[:500]
         ctx.add_step({"agent": "director", "kind": "auto", "name": "assign_specialist",

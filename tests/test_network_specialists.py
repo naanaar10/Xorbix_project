@@ -92,7 +92,7 @@ def test_the_director_hands_the_network_over_and_survives_a_failing_specialist(m
                          "loyalty": broken})
     ctx = make_ctx()
     lines = director.run_network_specialists(ctx)
-    assert lines == "\n- **Marketing (whole network)**: Queued two budget moves worth $5.1M a year."
+    assert lines == "\n\n**Marketing (whole network)**: Queued two budget moves worth $5.1M a year."
     assert [(s["name"], s["arguments"]) for s in ctx.steps] == [
         ("assign_specialist", '{"location_id": "NETWORK", "specialist": "marketing"}'),
         ("assign_specialist", '{"location_id": "NETWORK", "specialist": "loyalty"}')]
