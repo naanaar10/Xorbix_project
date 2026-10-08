@@ -278,7 +278,8 @@ def run_overview(wh: Any, fq: str, run_id: str | None = None) -> dict:
             SELECT k.*, d.location_id, d.problem_type, d.root_cause, d.evidence, d.recommended_fix,
                    d.specialist, d.revenue_at_stake
             FROM {fq}.clinic_diagnoses d LEFT JOIN {fq}.clinic_kpis k ON d.location_id = k.location_id
-            WHERE d.run_id = :run_id ORDER BY COALESCE(k.total_revenue_at_stake, d.revenue_at_stake) DESC""", by_run)
+            WHERE d.run_id = :run_id
+            ORDER BY d.location_id = 'NETWORK', COALESCE(k.total_revenue_at_stake, d.revenue_at_stake) DESC""", by_run)
         inputs_job = pool.submit(wh.query, f"""/* outcome_inputs */
             SELECT SUM(closed_plans_per_year * (1 - plan_completion_rate)) AS annual_dropouts,
                    MAX(avg_visit_revenue) AS avg_visit_revenue
