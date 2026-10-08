@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { agentHtml, duration, esc, isWorse, kpiScale, kpiValue, money, plural, slotLabel, when } from "../../src/app/static/format.js";
+import { agentHtml, duration, esc, isWorse, kpiScale, kpiValue, leverProblem, money, plural, slotLabel, when } from "../../src/app/static/format.js";
 
 test("money uses K below a million and M above", () => {
   assert.equal(money(467808), "$468K");
@@ -47,4 +47,10 @@ test("the agent's Markdown becomes safe HTML: bold and bullets only, headings dr
     "<ul><li><b>Chicago (LOC012)</b> \u2013 leads wait.</li><li><b>&lt;b&gt;x&lt;/b&gt;</b> &amp; co</li></ul>");
   assert.equal(agentHtml("One line.\nAnother line."), "<p>One line.</p><p>Another line.</p>");
   assert.equal(agentHtml(null), "");
+});
+
+test("every problem the agents can find has plain words", () => {
+  for (const lever of ["retention", "leads", "capacity", "marketing", "loyalty"]) {
+    assert.notEqual(leverProblem(lever), "revenue is leaking", lever);
+  }
 });

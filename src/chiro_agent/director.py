@@ -9,6 +9,7 @@ import mlflow
 
 from chiro_agent.context import RunContext, now, steps_to_rows
 from chiro_agent.loop import run_agent
+from chiro_agent.network_specialists import NETWORK, NETWORK_SPECIALISTS
 from chiro_agent.specialists import SPECIALISTS
 from chiro_agent.tools import Tool
 
@@ -98,6 +99,23 @@ def _director_tools(ctx: RunContext):
     return tools
 
 
+def run_network_specialists(ctx: RunContext) -> str:
+    """After the clinic reviews, hand the whole network to each network specialist. Returns lines
+    to add to the run summary. One failing specialist doesn't fail the run."""
+    lines = ""
+    for name, run in NETWORK_SPECIALISTS.items():
+        try:
+            out = run(ctx)
+            preview = out.get("summary", "")
+            lines += f"\n\n**{name.capitalize()} (whole network)**: {preview}" if preview else ""
+        except Exception as e:  # noqa: BLE001 - the clinic work is already saved
+            preview = f"Failed: {type(e).__name__}: {e}"[:500]
+        ctx.add_step({"agent": "director", "kind": "auto", "name": "assign_specialist",
+                      "arguments": json.dumps({"location_id": NETWORK, "specialist": name}),
+                      "result_preview": preview})
+    return lines
+
+
 def new_run_id() -> str:
     return f"run-{now():%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:4]}"
 
@@ -137,7 +155,10 @@ def run_growth_director(ctx: RunContext, clinics_per_run: int = 3, only_clinic: 
                                              "brief": d["recommended_fix"]})
             ctx.add_step({"agent": "director", "kind": "auto", "name": "assign_specialist",
                           "arguments": clinic, "result_preview": "Assigned by code after the Director stopped."})
-        return {"summary": result.final_text, "stopped_early": result.stopped_early}
+        summary = result.final_text
+        if not only_clinic:  # a live run on one clinic stays short
+            summary += run_network_specialists(ctx)
+        return {"summary": summary, "stopped_early": result.stopped_early}
 
     status, summary, trace_id = "SUCCEEDED", "", None
     try:

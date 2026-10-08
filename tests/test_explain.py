@@ -116,7 +116,15 @@ BRIDGE = {"leads_per_year": 282195.1194029851, "conversion": 0.28789850232238484
           "revenue_per_patient": 1128.13060220889, "visit_revenue": 110.87444698630249, "closed_plans": 78052,
           "median_completion": 0.5089903181189488, "top_decile_completion": 0.5520594965675057,
           "pm_capacity": 626400.0, "pm_booked": 462728.0, "leads_value": 29697463.218588624,
-          "capacity_value": 7729279.448309119, "retention_value": 6425889.008176902}
+          "capacity_value": 7729279.448309119, "retention_value": 6425889.008176902,
+          "costly_channel": "Paid Search", "costly_spend": 5544594.0, "costly_new_patients": 16846,
+          "cheap_channel": "Referral Program", "cheap_spend": 645118.0, "cheap_new_patients": 9536,
+          "marketing_moved": 645118.0, "marketing_value": 3167737.28,
+          "finishers": 35328, "top_uptake": 0.37547892720306514, "best_uptake_clinic": "Des Moines",
+          "best_uptake": 0.5651629072681704, "extra_wellness_plans": 1598.5440613026822, "wellness_visits": 12.0,
+          "membership_value": 2126852.27, "top_referral": 0.42456608811748997, "extra_referrers": 917.9799732977302,
+          "referrals_per_referrer": 1.5865735597524202, "referral_conversion": 0.37349751955920707,
+          "referrals_value": 613680.0}
 
 
 def test_each_step_on_the_path_to_the_goal_shows_its_math():
@@ -139,13 +147,34 @@ def test_each_step_on_the_path_to_the_goal_shows_its_math():
         row("Plan completion at the typical clinic", "50.9%"),
         row("Extra care plans finished each year", "3,362", "(55.2% − 50.9%) × 78,052 care plans"),
         row("A year", "$6.43M", "3,362 × $1,912 per finished care plan")]
+    assert math["marketing"] == [
+        row("Most expensive channel", "Paid Search", "$329 per new patient: $5.54M spent last year ÷ 16,846 new patients"),
+        row("Cheapest channel", "Referral Program", "$68 per new patient: $645K ÷ 9,536 new patients"),
+        row("Money moved each year", "$645K",
+            "a quarter of Paid Search's budget, or what Referral Program spends now if that's less"),
+        row("New patients lost from Paid Search", "1,960", "$645K ÷ $329"),
+        row("New patients won through Referral Program", "4,768", "$645K ÷ ($68 × 2): moved money works half as well"),
+        row("A year", "$3.17M", "(4,768 − 1,960) × $1,128 per new patient")]
+    assert math["membership"] == [
+        row("Patients who finish a care plan each year", "35,328", "all clinics, not counting Wellness plans"),
+        row("Start a Wellness plan at the best 10% of clinics", "37.5%", "the very best, Des Moines, reaches 56.5%"),
+        row("Extra Wellness plans each year", "1,599", "every clinic below 37.5% brought up to it"),
+        row("Value of a Wellness plan", "$1,330", "12 visits × $110.87"),
+        row("A year", "$2.13M", "1,599 × $1,330")]
+    assert math["referrals"] == [
+        row("Patients who finish a care plan each year", "35,328", "all clinics, not counting Wellness plans"),
+        row("Refer someone at the best 10% of clinics", "42.5%"),
+        row("Extra patients who refer someone each year", "918", "every clinic below 42.5% brought up to it"),
+        row("People each of them refers", "1.6", "the average over every referral"),
+        row("Referred people who become patients", "37.3%"),
+        row("A year", "$614K", "918 × 1.6 × 37.3% × $1,128 per new patient")]
     assert math["new_clinics"] == [
         row("Goal", "$250M"),
-        row("Revenue today", "$102M", "visit revenue in the last 12 months, 50 clinics"),
-        row("From the three fixes", "$43.9M", "$29.7M + $7.73M + $6.43M"),
-        row("Still to find", "$104M", "$250M − $102M − $43.9M"),
+        row("Revenue today", "$102M", "revenue from visits in the last 12 months, 50 clinics"),
+        row("From the fixes", "$49.8M", "$29.7M + $7.73M + $6.43M + $3.17M + $2.13M + $614K"),
+        row("Still to find", "$97.8M", "$250M − $102M − $49.8M"),
         row("Revenue of a typical clinic", "$2.05M", "$102M ÷ 50 clinics"),
-        row("New clinics", "51", "$104M ÷ $2.05M, rounded up")]
+        row("New clinics", "48", "$97.8M ÷ $2.05M, rounded up")]
 
 
 IMPACT = [

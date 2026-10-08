@@ -5,9 +5,9 @@ import { esc, plural, runKind, when } from "./format.js";
 
 const LOOP = [
   ["Observe", "Looks at every clinic: bookings, lead replies, finished care plans. Works out how much money each problem costs a year."],
-  ["Reason", "The Director agent picks the clinics losing the most and digs into their data with 13 tools until it finds the cause."],
-  ["Decide", "It writes down what's wrong and passes the clinic to the right specialist agent: retention, leads or capacity."],
-  ["Act", "The specialist looks at each patient or lead and writes a message for staff to approve."],
+  ["Reason", "The Director agent picks the clinics losing the most and digs into their data with its tools (17 in all) until it finds the cause."],
+  ["Decide", "It writes down what's wrong and passes the clinic to the right specialist agent: retention, leads or capacity. Then the marketing and loyalty specialists look at the whole network."],
+  ["Act", "Each specialist looks at each patient, lead or marketing channel and writes a message or a budget move for staff to approve."],
   ["Measure", "Patients are split into groups at random first, so we can compare the agent's messages with a plain reminder and with no message."],
 ];
 

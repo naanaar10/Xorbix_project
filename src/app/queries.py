@@ -11,6 +11,7 @@ from typing import Any
 from app import explain
 from app.steps import Narrator
 
+NETWORK = "NETWORK"     # location_id of the whole-network specialists' findings and moves
 FLAG_ABOVE = 150_000   # dollars a year at stake before a clinic counts as out of alignment
 GOAL = 250e6
 STATUSES = ("Pending", "Approved", "Rejected")
@@ -58,7 +59,10 @@ TABLE_COLUMNS = (("revenue", "annual_revenue", None),
                  ("quiet", "at_risk_patients", None))
 BRIDGE_LEVERS = (("leads_value", "leads", "Answer every lead within an hour"),
                  ("capacity_value", "capacity", "Fill afternoons to 85%"),
-                 ("retention_value", "retention", "Help patients finish their care plan, like the best clinics"))
+                 ("retention_value", "retention", "Help patients finish their care plan, like the best clinics"),
+                 ("marketing_value", "marketing", "Move marketing money to the cheapest channel"),
+                 ("membership_value", "membership", "Offer a Wellness plan when care ends, like the best clinics"),
+                 ("referrals_value", "referrals", "Ask patients who finish care to bring a friend"))
 
 BRIDGE_SQL = """/* network_bridge */
 WITH ref AS (SELECT as_of FROM {fq}.network_metadata),
@@ -74,14 +78,66 @@ k AS (
          MAX(med_completion) AS median_completion,
          percentile_approx(plan_completion_rate, 0.9) AS top_decile_completion,
          SUM(pm_capacity) AS pm_capacity, SUM(pm_capacity * pm_utilization) AS pm_booked
-  FROM {fq}.clinic_kpis)
+  FROM {fq}.clinic_kpis),
+channels AS (
+  SELECT c.channel, SUM(c.budget) AS spend, SUM(c.conversions) AS new_patients
+  FROM {fq}.marketing_campaigns c CROSS JOIN ref
+  WHERE c.start_date > date_sub(ref.as_of, 365) AND c.start_date <= ref.as_of
+  GROUP BY c.channel),
+mk AS (
+  SELECT max_by(channel, spend / new_patients) AS costly_channel, max_by(spend, spend / new_patients) AS costly_spend,
+         max_by(new_patients, spend / new_patients) AS costly_new_patients,
+         min_by(channel, spend / new_patients) AS cheap_channel, min_by(spend, spend / new_patients) AS cheap_spend,
+         min_by(new_patients, spend / new_patients) AS cheap_new_patients
+  FROM channels),
+moved AS (SELECT LEAST(0.25 * costly_spend, cheap_spend) AS marketing_moved FROM mk),
+-- Patients who finished a (non-Wellness) care plan in the last year, by clinic: how many moved onto
+-- a Wellness plan, and how many referred someone (get_loyalty_stats uses the same rules).
+finishers AS (
+  SELECT cp.location_id, cp.patient_id, cp.last_visit_date
+  FROM {fq}.care_plans cp CROSS JOIN ref
+  WHERE cp.status = 'Completed' AND cp.plan_type <> 'Wellness' AND cp.last_visit_date > date_sub(ref.as_of, 365)),
+wellness AS (SELECT patient_id, MIN(start_date) AS started FROM {fq}.care_plans WHERE plan_type = 'Wellness'
+             GROUP BY patient_id),
+referrers AS (SELECT referring_patient_id AS patient_id, COUNT(*) AS n FROM {fq}.referrals GROUP BY referring_patient_id),
+loyalty AS (
+  SELECT f.location_id, COUNT(*) AS finishers,
+         AVG(CASE WHEN w.started >= date_sub(f.last_visit_date, 30) THEN 1D ELSE 0D END) AS uptake,
+         AVG(CASE WHEN r.n > 0 THEN 1D ELSE 0D END) AS referral_rate
+  FROM finishers f LEFT JOIN wellness w ON f.patient_id = w.patient_id
+  LEFT JOIN referrers r ON f.patient_id = r.patient_id
+  GROUP BY f.location_id),
+loyalty_top AS (
+  SELECT percentile_approx(uptake, 0.9) AS top_uptake, percentile_approx(referral_rate, 0.9) AS top_referral,
+         max_by(location_id, uptake) AS best_uptake_id, MAX(uptake) AS best_uptake FROM loyalty),
+loyalty_sum AS (
+  SELECT SUM(l.finishers) AS finishers, MAX(t.top_uptake) AS top_uptake, MAX(t.top_referral) AS top_referral,
+         MAX(t.best_uptake) AS best_uptake,
+         SUM(GREATEST(0, t.top_uptake - l.uptake) * l.finishers) AS extra_wellness_plans,
+         SUM(GREATEST(0, t.top_referral - l.referral_rate) * l.finishers) AS extra_referrers
+  FROM loyalty l CROSS JOIN loyalty_top t),
+best_clinic AS (SELECT l.city AS best_uptake_clinic FROM loyalty_top t JOIN {fq}.locations l
+                ON l.location_id = t.best_uptake_id),
+loyalty_values AS (
+  SELECT (SELECT AVG(visits_completed) FROM {fq}.care_plans WHERE plan_type = 'Wellness' AND status = 'Completed')
+           AS wellness_visits,
+         (SELECT COUNT(*) / COUNT(DISTINCT referring_patient_id) FROM {fq}.referrals) AS referrals_per_referrer,
+         (SELECT AVG(CAST(converted_flag AS DOUBLE)) FROM {fq}.leads WHERE source = 'Referral') AS referral_conversion)
 -- Each lever fixed across the whole network: every lead answered within an hour, afternoons
--- booked to 85%, and plan completion raised from the median to the top-decile clinic's rate.
+-- booked to 85%, plan completion raised from the median to the top-decile clinic's rate, and a
+-- quarter of the costliest marketing channel's budget (at most what the cheapest spends) moved to
+-- the cheapest, where it wins patients at half that channel's rate (price_budget_shift's rule); and
+-- every clinic below the top-decile clinic's Wellness uptake and referral rate brought up to it.
 SELECT *,
        GREATEST(0, leads_per_year * (conversion_within_hour - conversion) * revenue_per_patient) AS leads_value,
        GREATEST(0, pm_capacity * 0.85 - pm_booked) * visit_revenue AS capacity_value,
-       GREATEST(0, closed_plans * (top_decile_completion - median_completion) * completion_value) AS retention_value
-FROM lead_rates CROSS JOIN k"""
+       GREATEST(0, closed_plans * (top_decile_completion - median_completion) * completion_value) AS retention_value,
+       GREATEST(0, (marketing_moved / (2 * cheap_spend / cheap_new_patients)
+                    - marketing_moved / (costly_spend / costly_new_patients)) * revenue_per_patient) AS marketing_value,
+       extra_wellness_plans * wellness_visits * visit_revenue AS membership_value,
+       extra_referrers * referrals_per_referrer * referral_conversion * revenue_per_patient AS referrals_value
+FROM lead_rates CROSS JOIN k CROSS JOIN mk CROSS JOIN moved CROSS JOIN loyalty_sum CROSS JOIN best_clinic
+     CROSS JOIN loyalty_values"""
 
 
 def utc_iso(value: Any) -> str | None:
@@ -130,7 +186,8 @@ def network(wh: Any, fq: str) -> dict:
                  "see how its number was worked out.")}
     return {"revenue": revenue, "goal": GOAL, "clinic_count": len(clinics), "flagged_count": len(flagged),
             "at_stake_total": at_stake_total, "flag_above": FLAG_ABOVE, "at_stake_math": at_stake_math,
-            "clinics": clinics, "medians": medians, "bridge": bridge, "units": explain.unit_math(first)}
+            "clinics": clinics, "medians": medians, "bridge": bridge, "units": explain.unit_math(first),
+            "inputs": values}
 
 
 def clinic_story(wh: Any, fq: str, clinic_id: str, run_id: str | None = None) -> dict:
@@ -167,6 +224,7 @@ def clinic_story(wh: Any, fq: str, clinic_id: str, run_id: str | None = None) ->
                 SELECT action_id, arm, target_type, target_id, intervention, channel, message, offered_slot,
                        rationale, status, signal, expected_value
                 FROM {fq}.action_queue WHERE run_id = :run_id AND location_id = :clinic_id
+                  AND specialist <> 'loyalty'
                 ORDER BY expected_value DESC""", {"run_id": dx["run_id"], "clinic_id": clinic_id})
         impact_rows = impact_job.result()
 
@@ -221,7 +279,8 @@ def run_overview(wh: Any, fq: str, run_id: str | None = None) -> dict:
             SELECT k.*, d.location_id, d.problem_type, d.root_cause, d.evidence, d.recommended_fix,
                    d.specialist, d.revenue_at_stake
             FROM {fq}.clinic_diagnoses d LEFT JOIN {fq}.clinic_kpis k ON d.location_id = k.location_id
-            WHERE d.run_id = :run_id ORDER BY COALESCE(k.total_revenue_at_stake, d.revenue_at_stake) DESC""", by_run)
+            WHERE d.run_id = :run_id
+            ORDER BY d.location_id = 'NETWORK', COALESCE(k.total_revenue_at_stake, d.revenue_at_stake) DESC""", by_run)
         inputs_job = pool.submit(wh.query, f"""/* outcome_inputs */
             SELECT SUM(closed_plans_per_year * (1 - plan_completion_rate)) AS annual_dropouts,
                    MAX(avg_visit_revenue) AS avg_visit_revenue
@@ -244,7 +303,7 @@ def run_overview(wh: Any, fq: str, run_id: str | None = None) -> dict:
             arms[r["arm"]] = arms.get(r["arm"], 0) + 1
     # The clinic's own figure, the same one its page shows, with the math behind it.
     diagnoses = [{**{f: r.get(f) for f in ("location_id", "city", "problem_type", "root_cause", "evidence",
-                                            "recommended_fix", "specialist")},
+                                            "recommended_fix", "specialist")}, "city": _city(r),
                   "at_stake": r["total_revenue_at_stake"] if r.get("total_revenue_at_stake") is not None
                   else r.get("revenue_at_stake"),
                   "math": explain.clinic_math(r) if r.get("total_revenue_at_stake") is not None else None}
@@ -253,13 +312,17 @@ def run_overview(wh: Any, fq: str, run_id: str | None = None) -> dict:
     return {
         "run": run,
         "diagnoses": diagnoses,
-        "actions": [{"location_id": r["location_id"], "city": r.get("city"), "specialist": r.get("specialist"),
+        "actions": [{"location_id": r["location_id"], "city": _city(r), "specialist": r.get("specialist"),
                      **{f: r.get(f) for f in ACTION_FIELDS}} for r in action_rows if r["arm"] == "agent"],
         "controls": controls,
         "impact": impact,
         "impact_math": explain.outcome_math(impact, inputs.get("annual_dropouts") or 0.0,
                                             inputs.get("avg_visit_revenue") or 0.0),
     }
+
+
+def _city(row: dict) -> str | None:
+    return "Whole network" if row.get("location_id") == NETWORK else row.get("city")
 
 
 def _choose_impact(rows: list[dict], story_run: str) -> tuple[list[dict], dict | None]:

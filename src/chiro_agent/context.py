@@ -31,6 +31,7 @@ class RunContext:
     specialist_runs: dict[str, str] = field(default_factory=dict)
     offered_slots: set[str] = field(default_factory=set)
     actions_queued: int = 0
+    queued_rows: list[dict] = field(default_factory=list)
 
     def table(self, name: str) -> str:
         return f"{self.settings.fq}.{name}"
@@ -40,6 +41,7 @@ class RunContext:
 
     def insert_actions(self, rows: list[dict]) -> None:
         self.wh.insert(self.table("action_queue"), rows)
+        self.queued_rows.extend(rows)
         self.actions_queued += sum(1 for r in rows if r["arm"] != "holdout")
 
 
@@ -84,8 +86,8 @@ def queue_action_tool(ctx: RunContext, *, location_id: str, specialist: str, tar
         if slot and slot in ctx.offered_slots:
             return {"error": f"Slot {slot} was already offered to another patient. Pick a different slot."}
         info = targets[target]
-        row = action_row(ctx, location_id=location_id, specialist=specialist, target_type=target_type,
-                         target_id=target, arm="agent", intervention=args["intervention"],
+        row = action_row(ctx, location_id=info.get("location_id") or location_id, specialist=specialist,
+                         target_type=target_type, target_id=target, arm="agent", intervention=args["intervention"],
                          care_plan_id=info.get("care_plan_id"), signal=info.get("signal"),
                          channel=args.get("channel"), message=(args.get("message") or "")[:600],
                          offered_slot=slot, rationale=(args.get("rationale") or "")[:600],

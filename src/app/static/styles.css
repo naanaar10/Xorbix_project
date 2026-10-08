@@ -113,12 +113,16 @@ button:disabled { cursor: progress; }
 .bridge h3 { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
 .bridge-bar { display: flex; gap: 2px; height: 28px; }
 .seg { height: 100%; width: 0; transition: width 700ms var(--ease); transition-delay: calc(var(--k) * 180ms + 150ms); }
+.bridge-bar.live .seg { transition-duration: 180ms; transition-delay: 0s; }
 .seg:first-child { border-radius: 4px 0 0 4px; }
 .seg:last-child { border-radius: 0 4px 4px 0; }
 .k-today { --c: var(--ink); }
 .k-leads { --c: var(--indigo); }
 .k-capacity { --c: var(--indigo-mid); }
 .k-retention { --c: var(--indigo-light); }
+.k-marketing { --c: var(--teal); }
+.k-membership { --c: #6FA59D; }
+.k-referrals { --c: #A9CBC5; }
 .k-new_clinics { --c: repeating-linear-gradient(135deg, #C5D0CD 0 5px, transparent 5px 10px); }
 .seg, .swatch { background: var(--c); }
 .k-new_clinics.seg, .k-new_clinics.swatch { outline: 1px solid var(--line); outline-offset: -1px; }
@@ -391,6 +395,19 @@ details.math[open] > summary { margin-bottom: 6px; }
   .receipt tr.result { border-top: 1.5px solid var(--ink); border-bottom: 0; }
   .receipt th, .receipt td, .receipt .num, .receipt .result > * { width: auto; padding: 0; border: 0; }
   .receipt .how { grid-column: 1 / -1; font-size: 12.5px; }
+}
+/* Try your own plan */
+.planner > summary { font-size: 15px; }
+.sliders { display: grid; gap: 10px; margin-top: 10px; }
+.slider { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(120px, 1fr) 64px 110px; gap: 14px; align-items: center; font-size: 14px; }
+.slider input { width: 100%; accent-color: var(--indigo); }
+.slider .setting { font-weight: 600; text-align: right; }
+.slider .worth { color: var(--slate); text-align: right; white-space: nowrap; }
+.planner-total { margin-top: 14px; font-size: 15px; }
+@container (max-width: 560px) {
+  .slider { grid-template-columns: 1fr auto; row-gap: 4px; }
+  .slider .name { grid-column: 1 / -1; }
+  .slider .worth { grid-column: 1 / -1; text-align: left; }
 }
 .meanings dt { font-weight: 600; margin-top: 8px; }
 .meanings dd { margin: 0; color: var(--slate); }
