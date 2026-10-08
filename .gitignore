@@ -11,5 +11,7 @@ build/
 *.local.*
 # Local working notes and tool output, never published
 docs/superpowers/
+docs/design.md
+docs/pitch.md
 .superpowers/
 .playwright-mcp/

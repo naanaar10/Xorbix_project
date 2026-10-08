@@ -177,7 +177,6 @@ src/app/                  Databricks App: server.py (API), static/ (the page), l
                           explain.py (the math behind each figure)
 scripts/                  run_app_locally.sh
 tests/                    unit tests (generator, outcome model, app API); tests/js for the page
-docs/design.md            design notes
 ```
 
 ## Tests
